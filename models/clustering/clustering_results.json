@@ -1,0 +1,12 @@
+{
+  "n_clusters": 3,
+  "silhouette_score": 0.0242,
+  "adjusted_rand_index": 0.1438,
+  "normalized_mutual_info": 0.3036,
+  "total_samples": 12706,
+  "cluster_sizes": {
+    "0": 3749,
+    "1": 4410,
+    "2": 4547
+  }
+}

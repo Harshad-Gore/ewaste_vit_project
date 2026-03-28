@@ -1,0 +1,20 @@
+{
+  "model": "ANN (Hazard Score Predictor)",
+  "test_mae": 7.6415,
+  "test_r2": 0.8771,
+  "hazard_class_accuracy": 0.8333,
+  "features": [
+    "component_enc",
+    "age_years",
+    "weight_kg",
+    "contains_lithium",
+    "contains_lead",
+    "contains_mercury",
+    "recyclable",
+    "material_enc",
+    "condition_enc",
+    "region_enc"
+  ],
+  "num_epochs": 100,
+  "best_val_mse": 71.4558
+}

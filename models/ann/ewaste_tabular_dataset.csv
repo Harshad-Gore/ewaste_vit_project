@@ -1,0 +1,1001 @@
+component,age_years,weight_kg,contains_lithium,contains_lead,contains_mercury,recyclable,material_type,condition,region_risk,hazard_score
+Battery,4.06,14.26,1,0,0,0,chemical,broken,medium,99.92
+Battery,1.05,13.0,1,0,0,0,chemical,damaged,high,95.41
+Battery,0.7,14.55,1,0,0,0,chemical,broken,low,90.73
+Battery,3.39,7.9,1,0,0,0,chemical,damaged,low,89.76
+Battery,6.31,2.14,1,0,0,0,chemical,working,medium,100.0
+Battery,2.4,7.74,1,0,0,0,chemical,damaged,low,89.47
+Battery,6.27,2.6,1,0,0,0,chemical,working,high,96.4
+Battery,7.0,6.63,1,0,0,0,chemical,working,medium,94.04
+Battery,0.83,13.64,1,0,0,0,chemical,working,medium,87.28
+Battery,5.69,2.81,1,0,0,0,chemical,broken,high,98.74
+Battery,9.43,13.43,1,0,0,0,chemical,damaged,high,100.0
+Battery,4.19,4.11,1,0,0,0,chemical,broken,medium,99.78
+Battery,3.17,8.16,1,0,0,0,chemical,working,high,91.37
+Battery,0.55,12.24,1,0,0,0,chemical,broken,high,100.0
+Battery,7.83,1.16,1,0,0,0,chemical,damaged,low,100.0
+Battery,3.64,1.0,1,0,0,0,chemical,damaged,medium,100.0
+Battery,7.43,9.58,1,0,0,0,chemical,broken,medium,100.0
+Battery,7.73,8.44,1,0,0,0,chemical,broken,medium,100.0
+Battery,5.47,6.44,1,0,0,0,chemical,working,low,90.63
+Battery,3.49,7.65,1,0,0,0,chemical,broken,low,95.73
+Battery,4.4,11.35,1,0,0,0,chemical,working,low,84.56
+Battery,9.33,12.13,1,0,0,0,chemical,damaged,high,100.0
+Battery,8.13,2.84,1,0,0,0,chemical,broken,medium,100.0
+Battery,2.67,6.44,1,0,0,0,chemical,broken,high,100.0
+Battery,0.57,7.69,1,0,0,0,chemical,damaged,low,86.14
+Battery,9.46,4.88,1,0,0,0,chemical,damaged,high,100.0
+Battery,3.95,14.58,1,0,0,0,chemical,broken,low,88.34
+Battery,3.21,0.6,1,0,0,0,chemical,damaged,medium,94.68
+Battery,0.99,4.22,1,0,0,0,chemical,broken,low,93.31
+Battery,9.86,3.67,1,0,0,0,chemical,damaged,high,100.0
+Battery,2.76,10.94,1,0,0,0,chemical,damaged,medium,97.07
+Battery,1.36,12.54,1,0,0,0,chemical,damaged,low,99.99
+Battery,0.89,8.88,1,0,0,0,chemical,damaged,low,80.58
+Battery,6.63,2.66,1,0,0,0,chemical,damaged,medium,100.0
+Battery,9.4,2.11,1,0,0,0,chemical,damaged,low,100.0
+Battery,8.26,8.35,1,0,0,0,chemical,damaged,low,93.24
+Battery,1.38,13.46,1,0,0,0,chemical,broken,medium,90.89
+Battery,7.4,13.46,1,0,0,0,chemical,broken,high,100.0
+Battery,6.6,1.31,1,0,0,0,chemical,working,high,100.0
+Battery,0.55,2.45,1,0,0,0,chemical,damaged,medium,87.25
+Battery,6.69,3.4,1,0,0,0,chemical,broken,low,100.0
+Battery,6.67,12.75,1,0,0,0,chemical,damaged,medium,95.9
+Battery,1.39,5.55,1,0,0,0,chemical,working,low,83.7
+Battery,8.97,9.49,1,0,0,0,chemical,broken,medium,100.0
+Battery,5.98,7.41,1,0,0,0,chemical,working,high,93.62
+Battery,9.43,14.31,1,0,0,0,chemical,broken,medium,100.0
+Battery,0.65,13.93,1,0,0,0,chemical,damaged,high,91.74
+Battery,8.59,4.79,1,0,0,0,chemical,working,medium,90.3
+Battery,9.39,10.46,1,0,0,0,chemical,damaged,low,100.0
+Battery,8.84,11.12,1,0,0,0,chemical,damaged,high,100.0
+PCB,3.92,4.44,0,1,0,1,composite,broken,high,100.0
+PCB,8.08,9.77,0,1,0,1,composite,broken,high,100.0
+PCB,8.96,5.1,0,1,0,1,composite,damaged,low,93.01
+PCB,4.92,8.16,0,1,0,1,composite,working,medium,87.79
+PCB,0.79,0.61,0,1,0,1,composite,broken,medium,91.51
+PCB,7.81,3.28,0,1,0,1,composite,damaged,low,88.33
+PCB,0.99,7.99,0,1,0,1,composite,damaged,medium,76.36
+PCB,8.05,4.1,0,1,0,1,composite,damaged,low,95.01
+PCB,0.74,14.44,0,1,0,1,composite,broken,medium,85.11
+PCB,1.99,3.79,0,1,0,1,composite,damaged,high,91.31
+PCB,6.77,4.24,0,1,0,1,composite,broken,high,100.0
+PCB,4.49,3.75,0,1,0,1,composite,damaged,high,100.0
+PCB,0.64,1.79,0,1,0,1,composite,working,low,80.17
+PCB,5.0,1.51,0,1,0,1,composite,damaged,medium,96.38
+PCB,2.15,6.54,0,1,0,1,composite,damaged,medium,86.02
+PCB,4.06,9.41,0,1,0,1,composite,damaged,high,96.74
+PCB,6.76,2.49,0,1,0,1,composite,working,medium,90.49
+PCB,9.43,8.65,0,1,0,1,composite,damaged,medium,97.22
+PCB,4.85,8.21,0,1,0,1,composite,broken,medium,98.69
+PCB,1.18,4.82,0,1,0,1,composite,broken,low,85.65
+PCB,8.24,4.26,0,1,0,1,composite,working,medium,96.85
+PCB,7.48,12.06,0,1,0,1,composite,working,low,89.76
+PCB,7.63,12.11,0,1,0,1,composite,broken,medium,100.0
+PCB,3.74,13.96,0,1,0,1,composite,broken,medium,92.65
+PCB,7.63,11.33,0,1,0,1,composite,working,high,100.0
+PCB,3.54,13.44,0,1,0,1,composite,damaged,low,87.42
+PCB,9.1,1.41,0,1,0,1,composite,damaged,high,100.0
+PCB,6.5,6.75,0,1,0,1,composite,working,medium,92.73
+PCB,6.89,11.3,0,1,0,1,composite,broken,high,100.0
+PCB,1.05,8.27,0,1,0,1,composite,damaged,high,87.08
+PCB,3.83,1.8,0,1,0,1,composite,working,high,86.64
+PCB,1.3,10.53,0,1,0,1,composite,working,high,88.17
+PCB,7.21,1.27,0,1,0,1,composite,working,high,88.57
+PCB,8.22,14.21,0,1,0,1,composite,broken,high,100.0
+PCB,4.07,1.3,0,1,0,1,composite,broken,medium,100.0
+PCB,1.56,7.41,0,1,0,1,composite,working,medium,81.53
+PCB,1.03,1.83,0,1,0,1,composite,working,medium,84.15
+PCB,9.64,5.65,0,1,0,1,composite,working,high,100.0
+PCB,2.62,14.45,0,1,0,1,composite,working,high,90.06
+PCB,1.2,8.33,0,1,0,1,composite,broken,medium,91.86
+PCB,6.48,10.45,0,1,0,1,composite,damaged,medium,99.08
+PCB,0.93,4.25,0,1,0,1,composite,broken,high,97.31
+PCB,4.83,9.32,0,1,0,1,composite,working,low,73.62
+PCB,6.04,1.21,0,1,0,1,composite,broken,high,100.0
+PCB,7.13,8.06,0,1,0,1,composite,damaged,high,96.21
+PCB,9.15,12.35,0,1,0,1,composite,broken,high,100.0
+PCB,6.33,6.3,0,1,0,1,composite,broken,high,100.0
+PCB,9.88,2.3,0,1,0,1,composite,damaged,medium,97.47
+PCB,9.71,12.64,0,1,0,1,composite,broken,medium,96.6
+PCB,1.04,12.98,0,1,0,1,composite,broken,high,93.56
+Mobile,9.97,8.35,1,0,0,1,composite,broken,high,100.0
+Mobile,4.78,1.98,1,0,0,1,composite,broken,medium,95.28
+Mobile,2.67,10.09,1,0,0,1,composite,damaged,medium,85.67
+Mobile,5.44,11.6,1,0,0,1,composite,damaged,high,89.42
+Mobile,5.74,8.44,1,0,0,1,composite,broken,medium,96.84
+Mobile,7.19,3.23,1,0,0,1,composite,working,low,89.63
+Mobile,3.83,8.87,1,0,0,1,composite,damaged,medium,84.4
+Mobile,5.38,11.77,1,0,0,1,composite,damaged,medium,91.66
+Mobile,8.69,14.25,1,0,0,1,composite,working,high,84.52
+Mobile,4.86,14.7,1,0,0,1,composite,damaged,medium,87.01
+Mobile,6.52,3.64,1,0,0,1,composite,working,low,83.61
+Mobile,2.23,5.22,1,0,0,1,composite,broken,medium,83.64
+Mobile,6.84,2.63,1,0,0,1,composite,working,low,79.61
+Mobile,2.18,1.38,1,0,0,1,composite,working,medium,74.31
+Mobile,2.46,5.5,1,0,0,1,composite,damaged,medium,80.19
+Mobile,8.8,13.82,1,0,0,1,composite,working,low,86.27
+Mobile,8.16,11.24,1,0,0,1,composite,working,low,82.86
+Mobile,6.37,5.57,1,0,0,1,composite,damaged,high,83.05
+Mobile,0.85,3.82,1,0,0,1,composite,broken,high,100.0
+Mobile,1.52,6.74,1,0,0,1,composite,damaged,low,84.88
+Mobile,3.06,5.69,1,0,0,1,composite,working,medium,76.35
+Mobile,1.64,13.36,1,0,0,1,composite,damaged,medium,77.05
+Mobile,8.0,7.5,1,0,0,1,composite,working,medium,94.61
+Mobile,4.6,1.96,1,0,0,1,composite,working,medium,84.6
+Mobile,6.64,8.58,1,0,0,1,composite,damaged,high,87.96
+Mobile,1.47,2.34,1,0,0,1,composite,working,low,77.02
+Mobile,2.27,4.31,1,0,0,1,composite,working,high,83.65
+Mobile,4.4,14.74,1,0,0,1,composite,working,medium,77.44
+Mobile,9.71,12.99,1,0,0,1,composite,broken,low,99.07
+Mobile,9.33,8.37,1,0,0,1,composite,damaged,low,86.11
+Mobile,7.81,2.85,1,0,0,1,composite,damaged,medium,83.58
+Mobile,1.59,9.18,1,0,0,1,composite,working,medium,77.63
+Mobile,1.97,7.24,1,0,0,1,composite,damaged,low,75.65
+Mobile,1.1,14.85,1,0,0,1,composite,damaged,high,84.73
+Mobile,2.92,10.24,1,0,0,1,composite,broken,medium,77.02
+Mobile,3.81,13.95,1,0,0,1,composite,broken,high,91.74
+Mobile,1.68,10.98,1,0,0,1,composite,broken,low,84.95
+Mobile,5.96,12.64,1,0,0,1,composite,working,high,88.16
+Mobile,2.42,2.5,1,0,0,1,composite,working,high,85.07
+Mobile,3.91,13.16,1,0,0,1,composite,damaged,high,100.0
+Mobile,4.67,5.69,1,0,0,1,composite,damaged,medium,87.1
+Mobile,2.71,13.5,1,0,0,1,composite,damaged,medium,92.44
+Mobile,9.11,9.38,1,0,0,1,composite,working,high,86.27
+Mobile,1.82,11.92,1,0,0,1,composite,damaged,medium,88.45
+Mobile,8.99,11.84,1,0,0,1,composite,working,medium,92.64
+Mobile,0.82,8.57,1,0,0,1,composite,broken,high,86.95
+Mobile,3.75,12.33,1,0,0,1,composite,working,high,84.28
+Mobile,8.07,2.29,1,0,0,1,composite,working,high,87.22
+Mobile,7.34,9.64,1,0,0,1,composite,damaged,medium,87.14
+Mobile,2.23,13.63,1,0,0,1,composite,damaged,medium,77.11
+Television,4.89,14.21,0,1,1,0,composite,working,medium,96.56
+Television,0.67,13.09,0,1,1,0,composite,broken,medium,88.65
+Television,7.12,13.84,0,1,1,0,composite,broken,low,100.0
+Television,4.53,11.06,0,1,1,0,composite,broken,high,100.0
+Television,4.78,1.74,0,1,1,0,composite,broken,high,99.45
+Television,6.12,6.02,0,1,1,0,composite,working,medium,91.65
+Television,8.13,0.12,0,1,1,0,composite,damaged,medium,98.31
+Television,3.79,5.24,0,1,1,0,composite,broken,medium,93.05
+Television,2.63,6.81,0,1,1,0,composite,working,low,64.47
+Television,9.19,5.47,0,1,1,0,composite,damaged,medium,95.52
+Television,0.62,9.97,0,1,1,0,composite,working,high,81.59
+Television,1.31,14.95,0,1,1,0,composite,damaged,medium,78.43
+Television,1.14,11.26,0,1,1,0,composite,working,high,80.84
+Television,0.85,7.11,0,1,1,0,composite,damaged,low,77.54
+Television,7.87,6.83,0,1,1,0,composite,damaged,medium,100.0
+Television,1.97,2.77,0,1,1,0,composite,broken,high,84.6
+Television,4.05,4.1,0,1,1,0,composite,damaged,medium,92.75
+Television,0.76,3.37,0,1,1,0,composite,working,medium,84.49
+Television,0.69,1.61,0,1,1,0,composite,broken,low,78.92
+Television,1.44,3.69,0,1,1,0,composite,broken,high,97.73
+Television,8.39,5.99,0,1,1,0,composite,damaged,low,94.55
+Television,0.62,1.33,0,1,1,0,composite,working,low,73.39
+Television,2.22,8.77,0,1,1,0,composite,damaged,high,87.72
+Television,2.96,5.73,0,1,1,0,composite,damaged,low,88.69
+Television,6.43,6.17,0,1,1,0,composite,damaged,medium,92.7
+Television,7.75,2.14,0,1,1,0,composite,broken,medium,98.15
+Television,9.0,12.01,0,1,1,0,composite,damaged,low,94.04
+Television,6.52,3.91,0,1,1,0,composite,working,high,83.23
+Television,9.85,7.91,0,1,1,0,composite,working,low,89.76
+Television,3.1,8.33,0,1,1,0,composite,damaged,high,86.76
+Television,2.46,0.21,0,1,1,0,composite,working,high,86.97
+Television,6.2,9.99,0,1,1,0,composite,working,high,96.22
+Television,4.48,5.78,0,1,1,0,composite,damaged,low,88.31
+Television,1.29,9.07,0,1,1,0,composite,working,medium,75.3
+Television,3.24,5.37,0,1,1,0,composite,broken,low,84.12
+Television,6.8,14.06,0,1,1,0,composite,broken,low,100.0
+Television,0.8,3.97,0,1,1,0,composite,damaged,low,92.99
+Television,3.68,11.58,0,1,1,0,composite,working,low,79.03
+Television,7.42,7.46,0,1,1,0,composite,damaged,medium,96.67
+Television,8.09,10.44,0,1,1,0,composite,working,medium,86.33
+Television,3.93,1.42,0,1,1,0,composite,broken,low,89.52
+Television,2.26,8.15,0,1,1,0,composite,broken,high,98.49
+Television,8.16,9.9,0,1,1,0,composite,damaged,high,98.89
+Television,2.6,14.82,0,1,1,0,composite,broken,low,79.6
+Television,7.2,13.88,0,1,1,0,composite,working,medium,82.4
+Television,9.28,14.57,0,1,1,0,composite,broken,medium,100.0
+Television,8.69,12.68,0,1,1,0,composite,damaged,high,100.0
+Television,2.69,1.85,0,1,1,0,composite,working,medium,78.72
+Television,3.73,10.89,0,1,1,0,composite,working,medium,89.83
+Television,3.53,9.41,0,1,1,0,composite,broken,medium,93.27
+light bulbs,2.71,0.41,0,0,1,0,glass,broken,low,84.48
+light bulbs,9.42,11.99,0,0,1,0,glass,broken,medium,100.0
+light bulbs,7.79,6.06,0,0,1,0,glass,damaged,medium,87.45
+light bulbs,4.5,11.08,0,0,1,0,glass,working,low,84.02
+light bulbs,3.87,4.34,0,0,1,0,glass,working,low,75.63
+light bulbs,4.15,10.21,0,0,1,0,glass,working,high,85.4
+light bulbs,7.97,1.39,0,0,1,0,glass,damaged,high,94.71
+light bulbs,6.33,2.55,0,0,1,0,glass,broken,low,92.87
+light bulbs,9.46,9.76,0,0,1,0,glass,damaged,medium,89.0
+light bulbs,2.59,2.84,0,0,1,0,glass,broken,medium,84.24
+light bulbs,1.05,14.54,0,0,1,0,glass,broken,high,96.68
+light bulbs,7.11,2.35,0,0,1,0,glass,broken,low,87.81
+light bulbs,2.63,8.08,0,0,1,0,glass,damaged,medium,78.88
+light bulbs,8.94,14.34,0,0,1,0,glass,broken,high,99.48
+light bulbs,6.72,8.29,0,0,1,0,glass,working,medium,76.19
+light bulbs,7.37,7.46,0,0,1,0,glass,working,low,77.4
+light bulbs,6.99,1.19,0,0,1,0,glass,broken,medium,100.0
+light bulbs,8.33,5.25,0,0,1,0,glass,damaged,medium,87.85
+light bulbs,3.04,13.19,0,0,1,0,glass,broken,medium,91.66
+light bulbs,7.13,10.22,0,0,1,0,glass,damaged,high,96.23
+light bulbs,2.01,13.22,0,0,1,0,glass,broken,low,82.17
+light bulbs,3.68,11.17,0,0,1,0,glass,working,high,84.26
+light bulbs,8.41,7.64,0,0,1,0,glass,working,low,83.56
+light bulbs,6.5,3.93,0,0,1,0,glass,damaged,medium,87.99
+light bulbs,7.91,1.65,0,0,1,0,glass,broken,medium,94.39
+light bulbs,6.51,13.98,0,0,1,0,glass,working,high,89.16
+light bulbs,7.03,1.06,0,0,1,0,glass,damaged,high,94.22
+light bulbs,3.79,9.33,0,0,1,0,glass,working,high,80.18
+light bulbs,9.75,14.53,0,0,1,0,glass,broken,low,100.0
+light bulbs,6.99,6.72,0,0,1,0,glass,working,high,88.16
+light bulbs,4.55,6.8,0,0,1,0,glass,working,high,79.72
+light bulbs,1.28,10.22,0,0,1,0,glass,damaged,low,80.47
+light bulbs,9.53,2.31,0,0,1,0,glass,damaged,high,100.0
+light bulbs,4.28,4.15,0,0,1,0,glass,broken,medium,84.07
+light bulbs,8.99,3.49,0,0,1,0,glass,working,low,77.23
+light bulbs,8.71,7.12,0,0,1,0,glass,broken,low,100.0
+light bulbs,8.75,11.66,0,0,1,0,glass,broken,high,100.0
+light bulbs,1.75,0.54,0,0,1,0,glass,broken,medium,92.27
+light bulbs,8.07,7.25,0,0,1,0,glass,working,low,78.72
+light bulbs,2.4,7.4,0,0,1,0,glass,working,medium,85.61
+light bulbs,3.06,11.97,0,0,1,0,glass,damaged,medium,80.32
+light bulbs,6.2,4.41,0,0,1,0,glass,damaged,high,80.18
+light bulbs,7.91,0.64,0,0,1,0,glass,damaged,low,86.84
+light bulbs,6.37,10.55,0,0,1,0,glass,damaged,low,78.77
+light bulbs,3.6,7.79,0,0,1,0,glass,working,medium,73.39
+light bulbs,5.89,10.36,0,0,1,0,glass,broken,low,87.43
+light bulbs,2.09,1.61,0,0,1,0,glass,damaged,high,86.43
+light bulbs,7.24,13.07,0,0,1,0,glass,broken,high,95.62
+light bulbs,3.72,12.23,0,0,1,0,glass,working,high,90.17
+light bulbs,4.8,9.67,0,0,1,0,glass,damaged,high,91.18
+Microwave,1.28,0.95,0,0,0,1,metal,working,low,52.31
+Microwave,9.77,5.09,0,0,0,1,metal,working,high,76.78
+Microwave,6.76,7.5,0,0,0,1,metal,damaged,high,75.33
+Microwave,2.4,10.22,0,0,0,1,metal,working,low,56.19
+Microwave,2.95,6.97,0,0,0,1,metal,broken,high,72.01
+Microwave,3.79,5.6,0,0,0,1,metal,broken,low,75.55
+Microwave,8.74,8.7,0,0,0,1,metal,damaged,high,83.5
+Microwave,9.06,6.35,0,0,0,1,metal,working,medium,68.39
+Microwave,9.17,3.2,0,0,0,1,metal,damaged,medium,70.62
+Microwave,7.3,13.64,0,0,0,1,metal,working,low,64.93
+Microwave,9.73,2.76,0,0,0,1,metal,broken,medium,82.31
+Microwave,4.73,7.75,0,0,0,1,metal,damaged,medium,65.24
+Microwave,2.05,5.9,0,0,0,1,metal,broken,low,58.61
+Microwave,7.85,2.01,0,0,0,1,metal,broken,medium,82.58
+Microwave,2.74,1.15,0,0,0,1,metal,working,medium,64.1
+Microwave,4.59,3.77,0,0,0,1,metal,damaged,high,69.42
+Microwave,2.09,2.56,0,0,0,1,metal,working,high,61.52
+Microwave,8.52,12.09,0,0,0,1,metal,damaged,high,88.16
+Microwave,2.46,1.72,0,0,0,1,metal,working,low,59.32
+Microwave,0.87,1.88,0,0,0,1,metal,damaged,high,66.57
+Microwave,3.5,7.63,0,0,0,1,metal,working,low,61.84
+Microwave,4.82,7.76,0,0,0,1,metal,damaged,medium,68.96
+Microwave,1.83,0.5,0,0,0,1,metal,damaged,high,70.8
+Microwave,9.71,1.45,0,0,0,1,metal,damaged,medium,69.3
+Microwave,8.75,2.7,0,0,0,1,metal,damaged,high,78.87
+Microwave,5.22,9.29,0,0,0,1,metal,broken,medium,74.66
+Microwave,0.79,13.97,0,0,0,1,metal,damaged,medium,64.38
+Microwave,4.24,9.79,0,0,0,1,metal,working,medium,55.65
+Microwave,9.99,0.77,0,0,0,1,metal,broken,medium,81.6
+Microwave,5.89,11.09,0,0,0,1,metal,broken,medium,75.94
+Microwave,3.61,10.03,0,0,0,1,metal,broken,high,73.92
+Microwave,8.27,1.85,0,0,0,1,metal,damaged,low,76.28
+Microwave,3.58,5.53,0,0,0,1,metal,damaged,medium,60.42
+Microwave,2.76,5.63,0,0,0,1,metal,working,low,45.37
+Microwave,6.23,10.04,0,0,0,1,metal,damaged,medium,74.26
+Microwave,5.43,7.21,0,0,0,1,metal,working,medium,61.52
+Microwave,4.11,6.01,0,0,0,1,metal,damaged,medium,73.09
+Microwave,8.22,10.79,0,0,0,1,metal,broken,low,77.15
+Microwave,2.36,0.16,0,0,0,1,metal,damaged,high,69.06
+Microwave,1.07,14.02,0,0,0,1,metal,damaged,low,58.3
+Microwave,5.12,3.89,0,0,0,1,metal,working,medium,63.57
+Microwave,3.46,9.17,0,0,0,1,metal,broken,low,74.15
+Microwave,4.43,1.87,0,0,0,1,metal,working,medium,62.17
+Microwave,7.24,1.65,0,0,0,1,metal,damaged,low,61.18
+Microwave,9.65,7.28,0,0,0,1,metal,broken,medium,80.1
+Microwave,9.54,9.04,0,0,0,1,metal,broken,high,82.16
+Microwave,2.67,3.22,0,0,0,1,metal,damaged,medium,57.78
+Microwave,7.91,4.16,0,0,0,1,metal,broken,medium,73.41
+Microwave,6.84,1.48,0,0,0,1,metal,damaged,medium,64.32
+Microwave,7.5,12.95,0,0,0,1,metal,working,low,64.8
+Washing Machine,0.72,9.65,0,0,0,1,metal,damaged,medium,43.3
+Washing Machine,6.15,7.48,0,0,0,1,metal,broken,low,49.37
+Washing Machine,7.1,6.09,0,0,0,1,metal,damaged,high,63.5
+Washing Machine,3.1,1.24,0,0,0,1,metal,working,high,57.8
+Washing Machine,2.32,4.88,0,0,0,1,metal,working,medium,43.65
+Washing Machine,1.14,12.02,0,0,0,1,metal,working,medium,37.86
+Washing Machine,8.86,9.78,0,0,0,1,metal,damaged,medium,64.43
+Washing Machine,9.94,9.94,0,0,0,1,metal,damaged,high,58.87
+Washing Machine,4.92,0.95,0,0,0,1,metal,damaged,high,60.07
+Washing Machine,2.41,8.06,0,0,0,1,metal,working,medium,39.01
+Washing Machine,7.68,5.25,0,0,0,1,metal,damaged,high,56.06
+Washing Machine,9.93,13.91,0,0,0,1,metal,damaged,high,63.31
+Washing Machine,5.45,9.37,0,0,0,1,metal,working,high,53.84
+Washing Machine,7.93,10.65,0,0,0,1,metal,working,medium,51.13
+Washing Machine,3.0,5.43,0,0,0,1,metal,working,high,40.32
+Washing Machine,4.27,6.74,0,0,0,1,metal,damaged,medium,53.95
+Washing Machine,9.23,7.48,0,0,0,1,metal,broken,high,69.26
+Washing Machine,4.12,13.18,0,0,0,1,metal,broken,high,60.68
+Washing Machine,8.01,4.6,0,0,0,1,metal,working,medium,54.69
+Washing Machine,3.79,14.64,0,0,0,1,metal,damaged,high,51.19
+Washing Machine,1.76,12.94,0,0,0,1,metal,broken,medium,59.59
+Washing Machine,2.16,7.56,0,0,0,1,metal,damaged,low,48.03
+Washing Machine,3.99,1.07,0,0,0,1,metal,working,low,43.27
+Washing Machine,9.68,6.52,0,0,0,1,metal,damaged,medium,62.16
+Washing Machine,4.68,1.63,0,0,0,1,metal,damaged,low,56.67
+Washing Machine,1.94,0.97,0,0,0,1,metal,broken,medium,59.01
+Washing Machine,1.05,14.92,0,0,0,1,metal,working,medium,38.51
+Washing Machine,7.08,0.98,0,0,0,1,metal,damaged,high,59.1
+Washing Machine,8.23,9.25,0,0,0,1,metal,damaged,medium,44.58
+Washing Machine,1.74,13.3,0,0,0,1,metal,damaged,low,49.28
+Washing Machine,3.99,6.24,0,0,0,1,metal,broken,high,58.11
+Washing Machine,0.68,3.93,0,0,0,1,metal,broken,low,35.07
+Washing Machine,5.59,3.27,0,0,0,1,metal,working,low,45.3
+Washing Machine,1.54,8.24,0,0,0,1,metal,damaged,high,55.21
+Washing Machine,1.43,7.35,0,0,0,1,metal,working,medium,41.28
+Washing Machine,4.07,5.95,0,0,0,1,metal,damaged,high,64.66
+Washing Machine,8.97,14.33,0,0,0,1,metal,broken,medium,60.43
+Washing Machine,2.92,12.62,0,0,0,1,metal,working,high,58.51
+Washing Machine,4.88,9.58,0,0,0,1,metal,damaged,high,63.83
+Washing Machine,1.13,7.8,0,0,0,1,metal,working,high,54.51
+Washing Machine,5.37,10.22,0,0,0,1,metal,working,low,43.22
+Washing Machine,1.18,0.23,0,0,0,1,metal,broken,high,57.69
+Washing Machine,3.86,4.48,0,0,0,1,metal,damaged,high,50.55
+Washing Machine,2.15,1.52,0,0,0,1,metal,damaged,high,55.91
+Washing Machine,3.02,0.36,0,0,0,1,metal,working,high,54.51
+Washing Machine,6.43,5.76,0,0,0,1,metal,working,low,42.87
+Washing Machine,6.34,11.63,0,0,0,1,metal,damaged,medium,51.3
+Washing Machine,9.81,9.05,0,0,0,1,metal,damaged,high,69.35
+Washing Machine,8.21,9.86,0,0,0,1,metal,working,medium,47.09
+Washing Machine,4.67,9.21,0,0,0,1,metal,broken,low,44.18
+Printer,1.65,3.0,0,1,0,1,composite,broken,medium,66.78
+Printer,8.68,12.71,0,1,0,1,composite,broken,low,67.11
+Printer,7.67,6.94,0,1,0,1,composite,broken,high,79.82
+Printer,2.19,8.2,0,1,0,1,composite,broken,high,74.15
+Printer,0.91,2.51,0,1,0,1,composite,working,high,53.72
+Printer,5.31,12.62,0,1,0,1,composite,broken,medium,70.89
+Printer,6.11,7.65,0,1,0,1,composite,working,medium,62.93
+Printer,6.54,11.43,0,1,0,1,composite,working,medium,61.72
+Printer,0.59,3.74,0,1,0,1,composite,broken,high,64.84
+Printer,8.1,3.1,0,1,0,1,composite,damaged,high,67.9
+Printer,6.35,2.86,0,1,0,1,composite,damaged,high,68.86
+Printer,7.73,0.58,0,1,0,1,composite,broken,low,68.67
+Printer,9.6,5.55,0,1,0,1,composite,damaged,low,70.01
+Printer,9.97,5.56,0,1,0,1,composite,damaged,high,73.08
+Printer,8.92,8.92,0,1,0,1,composite,damaged,medium,60.75
+Printer,8.04,1.44,0,1,0,1,composite,damaged,medium,73.38
+Printer,6.6,1.02,0,1,0,1,composite,damaged,medium,75.21
+Printer,6.93,12.08,0,1,0,1,composite,working,high,71.43
+Printer,5.23,1.2,0,1,0,1,composite,working,medium,61.33
+Printer,7.99,7.78,0,1,0,1,composite,damaged,low,68.76
+Printer,3.62,6.54,0,1,0,1,composite,working,low,59.99
+Printer,9.98,14.0,0,1,0,1,composite,damaged,medium,73.13
+Printer,6.54,11.8,0,1,0,1,composite,working,medium,57.95
+Printer,5.93,8.84,0,1,0,1,composite,working,medium,64.34
+Printer,3.68,0.44,0,1,0,1,composite,working,high,61.22
+Printer,3.34,14.11,0,1,0,1,composite,working,medium,46.16
+Printer,8.79,12.64,0,1,0,1,composite,working,high,62.34
+Printer,1.77,1.25,0,1,0,1,composite,broken,medium,48.29
+Printer,4.65,10.96,0,1,0,1,composite,broken,low,58.98
+Printer,7.64,9.87,0,1,0,1,composite,broken,low,69.97
+Printer,1.04,4.27,0,1,0,1,composite,working,low,47.43
+Printer,3.08,11.4,0,1,0,1,composite,damaged,high,66.46
+Printer,1.12,7.34,0,1,0,1,composite,working,low,36.56
+Printer,3.8,13.5,0,1,0,1,composite,working,medium,60.12
+Printer,9.65,8.42,0,1,0,1,composite,broken,low,63.67
+Printer,7.44,14.72,0,1,0,1,composite,working,medium,58.52
+Printer,2.38,8.5,0,1,0,1,composite,damaged,high,55.5
+Printer,1.58,2.31,0,1,0,1,composite,working,low,55.2
+Printer,8.58,8.44,0,1,0,1,composite,damaged,low,67.02
+Printer,1.14,10.63,0,1,0,1,composite,damaged,low,57.18
+Printer,4.85,7.3,0,1,0,1,composite,working,high,64.46
+Printer,4.89,6.21,0,1,0,1,composite,damaged,medium,66.86
+Printer,1.09,7.71,0,1,0,1,composite,broken,medium,58.41
+Printer,2.06,4.99,0,1,0,1,composite,broken,medium,59.1
+Printer,2.45,13.17,0,1,0,1,composite,broken,high,67.21
+Printer,9.86,11.59,0,1,0,1,composite,working,low,53.97
+Printer,4.91,13.64,0,1,0,1,composite,damaged,medium,63.85
+Printer,8.31,5.74,0,1,0,1,composite,broken,high,73.71
+Printer,2.44,7.87,0,1,0,1,composite,working,high,68.02
+Printer,8.08,5.97,0,1,0,1,composite,broken,medium,77.52
+Player,2.0,10.45,1,0,0,1,composite,broken,medium,56.33
+Player,2.25,13.42,1,0,0,1,composite,damaged,low,48.36
+Player,4.68,9.25,1,0,0,1,composite,working,high,57.15
+Player,9.69,6.3,1,0,0,1,composite,broken,medium,76.59
+Player,6.53,2.53,1,0,0,1,composite,broken,medium,70.73
+Player,7.33,13.36,1,0,0,1,composite,working,high,73.95
+Player,2.28,12.88,1,0,0,1,composite,broken,medium,53.39
+Player,4.98,12.33,1,0,0,1,composite,damaged,medium,63.16
+Player,5.2,12.43,1,0,0,1,composite,damaged,low,59.0
+Player,1.46,3.64,1,0,0,1,composite,working,medium,49.92
+Player,4.78,11.24,1,0,0,1,composite,damaged,medium,62.16
+Player,4.98,14.69,1,0,0,1,composite,damaged,low,52.31
+Player,6.92,4.91,1,0,0,1,composite,damaged,low,58.8
+Player,2.66,12.56,1,0,0,1,composite,working,medium,47.69
+Player,7.09,7.71,1,0,0,1,composite,damaged,low,60.21
+Player,8.78,11.5,1,0,0,1,composite,broken,medium,69.06
+Player,2.97,13.61,1,0,0,1,composite,damaged,medium,53.8
+Player,4.87,12.98,1,0,0,1,composite,damaged,medium,52.44
+Player,9.78,1.71,1,0,0,1,composite,damaged,low,63.33
+Player,3.16,12.88,1,0,0,1,composite,working,high,55.69
+Player,7.66,12.08,1,0,0,1,composite,working,high,56.82
+Player,8.38,4.26,1,0,0,1,composite,broken,low,70.0
+Player,7.19,8.13,1,0,0,1,composite,working,low,52.68
+Player,3.36,9.0,1,0,0,1,composite,working,low,45.53
+Player,7.56,0.77,1,0,0,1,composite,broken,high,76.09
+Player,8.98,2.82,1,0,0,1,composite,working,low,64.02
+Player,8.05,0.57,1,0,0,1,composite,damaged,high,67.42
+Player,1.1,12.48,1,0,0,1,composite,damaged,low,54.47
+Player,1.39,13.65,1,0,0,1,composite,damaged,high,58.04
+Player,5.42,6.48,1,0,0,1,composite,damaged,medium,63.13
+Player,7.85,9.05,1,0,0,1,composite,broken,medium,74.84
+Player,6.12,10.55,1,0,0,1,composite,working,medium,60.76
+Player,1.49,5.8,1,0,0,1,composite,damaged,medium,52.85
+Player,7.56,7.62,1,0,0,1,composite,damaged,low,61.1
+Player,2.92,5.46,1,0,0,1,composite,damaged,low,49.23
+Player,9.73,5.0,1,0,0,1,composite,damaged,low,58.13
+Player,6.3,4.25,1,0,0,1,composite,working,medium,52.91
+Player,8.12,8.6,1,0,0,1,composite,damaged,low,55.43
+Player,9.35,5.99,1,0,0,1,composite,working,medium,57.43
+Player,5.32,13.12,1,0,0,1,composite,damaged,high,59.0
+Player,9.93,2.02,1,0,0,1,composite,working,medium,50.88
+Player,9.12,10.72,1,0,0,1,composite,damaged,medium,55.76
+Player,8.33,14.33,1,0,0,1,composite,broken,low,62.07
+Player,2.95,0.94,1,0,0,1,composite,damaged,medium,55.15
+Player,1.59,5.79,1,0,0,1,composite,damaged,medium,51.33
+Player,7.64,1.11,1,0,0,1,composite,working,medium,51.52
+Player,9.45,10.05,1,0,0,1,composite,damaged,medium,63.68
+Player,6.54,13.7,1,0,0,1,composite,damaged,high,64.91
+Player,7.38,1.85,1,0,0,1,composite,broken,low,57.35
+Player,0.61,6.36,1,0,0,1,composite,working,medium,46.46
+Capacitor,5.98,0.7,0,0,0,1,chemical,working,medium,65.3
+Capacitor,6.7,12.69,0,0,0,1,chemical,damaged,medium,60.71
+Capacitor,6.89,4.17,0,0,0,1,chemical,damaged,high,77.3
+Capacitor,8.31,12.87,0,0,0,1,chemical,broken,medium,71.22
+Capacitor,3.53,8.75,0,0,0,1,chemical,damaged,medium,65.46
+Capacitor,4.06,2.54,0,0,0,1,chemical,damaged,low,63.72
+Capacitor,8.96,5.22,0,0,0,1,chemical,working,low,66.99
+Capacitor,3.74,1.12,0,0,0,1,chemical,damaged,medium,67.58
+Capacitor,6.93,9.11,0,0,0,1,chemical,damaged,low,62.27
+Capacitor,7.04,2.15,0,0,0,1,chemical,damaged,low,63.96
+Capacitor,5.3,14.46,0,0,0,1,chemical,damaged,low,59.51
+Capacitor,2.02,0.4,0,0,0,1,chemical,broken,medium,61.18
+Capacitor,3.25,13.51,0,0,0,1,chemical,working,high,63.36
+Capacitor,6.23,12.41,0,0,0,1,chemical,broken,low,64.67
+Capacitor,9.63,5.87,0,0,0,1,chemical,damaged,medium,63.48
+Capacitor,5.76,8.15,0,0,0,1,chemical,broken,high,74.36
+Capacitor,4.68,4.57,0,0,0,1,chemical,working,low,53.19
+Capacitor,3.07,14.5,0,0,0,1,chemical,damaged,medium,57.24
+Capacitor,6.01,2.13,0,0,0,1,chemical,damaged,medium,51.37
+Capacitor,9.94,13.21,0,0,0,1,chemical,damaged,medium,68.48
+Capacitor,6.4,3.06,0,0,0,1,chemical,damaged,low,74.82
+Capacitor,2.66,14.46,0,0,0,1,chemical,broken,high,61.48
+Capacitor,5.57,13.06,0,0,0,1,chemical,working,high,64.7
+Capacitor,3.12,13.16,0,0,0,1,chemical,broken,low,59.96
+Capacitor,4.9,14.72,0,0,0,1,chemical,damaged,high,58.48
+Capacitor,3.21,3.09,0,0,0,1,chemical,broken,medium,71.13
+Capacitor,5.36,7.41,0,0,0,1,chemical,damaged,high,67.76
+Capacitor,8.36,11.48,0,0,0,1,chemical,damaged,high,73.97
+Capacitor,2.4,1.68,0,0,0,1,chemical,broken,medium,66.57
+Capacitor,6.45,13.9,0,0,0,1,chemical,working,medium,44.98
+Capacitor,7.03,10.85,0,0,0,1,chemical,damaged,low,57.69
+Capacitor,8.14,4.22,0,0,0,1,chemical,working,high,60.32
+Capacitor,0.58,14.97,0,0,0,1,chemical,damaged,high,64.5
+Capacitor,7.53,2.19,0,0,0,1,chemical,broken,high,78.88
+Capacitor,6.76,11.5,0,0,0,1,chemical,broken,medium,70.0
+Capacitor,1.24,6.14,0,0,0,1,chemical,damaged,low,49.45
+Capacitor,3.81,1.71,0,0,0,1,chemical,broken,high,61.25
+Capacitor,1.23,7.53,0,0,0,1,chemical,broken,high,67.91
+Capacitor,0.98,1.14,0,0,0,1,chemical,damaged,low,49.62
+Capacitor,8.13,13.94,0,0,0,1,chemical,damaged,high,67.5
+Capacitor,3.55,7.17,0,0,0,1,chemical,working,medium,55.63
+Capacitor,3.9,9.73,0,0,0,1,chemical,working,high,62.24
+Capacitor,5.28,6.77,0,0,0,1,chemical,damaged,medium,63.97
+Capacitor,2.8,10.72,0,0,0,1,chemical,broken,high,66.74
+Capacitor,5.75,7.83,0,0,0,1,chemical,working,high,63.5
+Capacitor,3.2,2.05,0,0,0,1,chemical,damaged,low,47.96
+Capacitor,7.61,4.8,0,0,0,1,chemical,working,medium,59.78
+Capacitor,8.47,0.11,0,0,0,1,chemical,working,high,68.49
+Capacitor,3.5,1.57,0,0,0,1,chemical,damaged,low,54.88
+Capacitor,7.99,13.38,0,0,0,1,chemical,damaged,high,76.36
+Integrated-micro-circuit,4.08,14.46,0,1,0,1,silicon,working,medium,48.93
+Integrated-micro-circuit,6.51,10.57,0,1,0,1,silicon,working,low,61.09
+Integrated-micro-circuit,7.27,10.01,0,1,0,1,silicon,broken,high,81.35
+Integrated-micro-circuit,3.33,1.63,0,1,0,1,silicon,broken,medium,70.98
+Integrated-micro-circuit,0.96,5.43,0,1,0,1,silicon,broken,medium,59.22
+Integrated-micro-circuit,2.48,5.56,0,1,0,1,silicon,damaged,low,49.25
+Integrated-micro-circuit,7.79,6.28,0,1,0,1,silicon,broken,high,84.8
+Integrated-micro-circuit,4.99,13.21,0,1,0,1,silicon,working,medium,56.79
+Integrated-micro-circuit,6.27,4.46,0,1,0,1,silicon,working,medium,60.06
+Integrated-micro-circuit,6.63,5.96,0,1,0,1,silicon,broken,low,77.57
+Integrated-micro-circuit,8.96,4.35,0,1,0,1,silicon,damaged,low,70.64
+Integrated-micro-circuit,3.04,12.54,0,1,0,1,silicon,working,medium,54.55
+Integrated-micro-circuit,3.7,0.34,0,1,0,1,silicon,working,medium,47.75
+Integrated-micro-circuit,5.54,8.95,0,1,0,1,silicon,working,medium,62.36
+Integrated-micro-circuit,9.65,7.81,0,1,0,1,silicon,damaged,medium,78.06
+Integrated-micro-circuit,5.45,14.64,0,1,0,1,silicon,working,low,63.77
+Integrated-micro-circuit,7.82,12.12,0,1,0,1,silicon,working,low,64.23
+Integrated-micro-circuit,3.81,5.61,0,1,0,1,silicon,working,low,65.46
+Integrated-micro-circuit,6.64,14.61,0,1,0,1,silicon,broken,low,72.83
+Integrated-micro-circuit,7.91,6.9,0,1,0,1,silicon,damaged,medium,73.09
+Integrated-micro-circuit,1.12,3.46,0,1,0,1,silicon,working,medium,55.81
+Integrated-micro-circuit,1.05,14.37,0,1,0,1,silicon,broken,high,79.88
+Integrated-micro-circuit,9.92,8.19,0,1,0,1,silicon,broken,low,70.58
+Integrated-micro-circuit,2.36,2.16,0,1,0,1,silicon,damaged,high,65.46
+Integrated-micro-circuit,5.99,2.25,0,1,0,1,silicon,broken,medium,81.89
+Integrated-micro-circuit,2.97,5.21,0,1,0,1,silicon,broken,low,61.38
+Integrated-micro-circuit,4.96,13.36,0,1,0,1,silicon,broken,low,65.27
+Integrated-micro-circuit,1.78,14.37,0,1,0,1,silicon,damaged,low,70.11
+Integrated-micro-circuit,5.26,10.21,0,1,0,1,silicon,working,low,58.98
+Integrated-micro-circuit,5.69,6.52,0,1,0,1,silicon,working,low,67.4
+Integrated-micro-circuit,4.73,3.18,0,1,0,1,silicon,working,high,64.95
+Integrated-micro-circuit,9.63,2.99,0,1,0,1,silicon,broken,high,87.38
+Integrated-micro-circuit,7.26,14.72,0,1,0,1,silicon,damaged,low,78.01
+Integrated-micro-circuit,1.19,9.35,0,1,0,1,silicon,broken,low,56.98
+Integrated-micro-circuit,8.03,13.62,0,1,0,1,silicon,broken,high,84.17
+Integrated-micro-circuit,7.69,2.47,0,1,0,1,silicon,damaged,high,76.64
+Integrated-micro-circuit,2.85,9.63,0,1,0,1,silicon,damaged,low,68.7
+Integrated-micro-circuit,5.24,0.23,0,1,0,1,silicon,working,medium,64.64
+Integrated-micro-circuit,9.3,3.47,0,1,0,1,silicon,damaged,low,75.36
+Integrated-micro-circuit,7.42,1.48,0,1,0,1,silicon,damaged,low,65.88
+Integrated-micro-circuit,5.07,9.95,0,1,0,1,silicon,working,low,63.32
+Integrated-micro-circuit,9.94,0.72,0,1,0,1,silicon,broken,medium,79.0
+Integrated-micro-circuit,4.23,11.33,0,1,0,1,silicon,broken,high,67.01
+Integrated-micro-circuit,7.98,3.8,0,1,0,1,silicon,damaged,medium,77.01
+Integrated-micro-circuit,6.74,3.64,0,1,0,1,silicon,working,high,70.18
+Integrated-micro-circuit,2.6,0.63,0,1,0,1,silicon,working,low,51.13
+Integrated-micro-circuit,8.73,4.27,0,1,0,1,silicon,broken,medium,87.98
+Integrated-micro-circuit,5.41,11.39,0,1,0,1,silicon,working,medium,55.29
+Integrated-micro-circuit,8.99,14.2,0,1,0,1,silicon,broken,medium,77.85
+Integrated-micro-circuit,5.23,3.11,0,1,0,1,silicon,damaged,low,72.4
+microchip,3.65,12.83,0,1,0,1,silicon,working,low,42.45
+microchip,8.2,12.55,0,1,0,1,silicon,damaged,medium,71.3
+microchip,7.83,9.84,0,1,0,1,silicon,working,high,60.85
+microchip,4.54,0.61,0,1,0,1,silicon,working,high,66.41
+microchip,0.5,6.28,0,1,0,1,silicon,damaged,low,50.31
+microchip,2.69,0.07,0,1,0,1,silicon,broken,high,66.6
+microchip,2.63,9.96,0,1,0,1,silicon,broken,high,63.32
+microchip,3.59,10.7,0,1,0,1,silicon,broken,low,62.0
+microchip,4.02,13.53,0,1,0,1,silicon,broken,high,71.05
+microchip,6.11,9.93,0,1,0,1,silicon,working,medium,69.28
+microchip,7.24,2.55,0,1,0,1,silicon,broken,medium,77.11
+microchip,3.32,10.73,0,1,0,1,silicon,broken,low,57.46
+microchip,5.38,7.66,0,1,0,1,silicon,damaged,high,73.74
+microchip,7.29,6.95,0,1,0,1,silicon,broken,medium,78.37
+microchip,7.43,12.93,0,1,0,1,silicon,working,high,66.35
+microchip,3.69,14.68,0,1,0,1,silicon,broken,high,68.03
+microchip,7.41,8.45,0,1,0,1,silicon,broken,medium,68.65
+microchip,7.97,11.03,0,1,0,1,silicon,damaged,low,65.02
+microchip,8.47,0.22,0,1,0,1,silicon,broken,high,73.12
+microchip,7.2,12.27,0,1,0,1,silicon,damaged,high,72.01
+microchip,0.99,7.6,0,1,0,1,silicon,broken,high,71.95
+microchip,5.75,5.98,0,1,0,1,silicon,working,high,64.0
+microchip,1.99,4.68,0,1,0,1,silicon,working,high,66.29
+microchip,2.88,9.39,0,1,0,1,silicon,damaged,high,70.4
+microchip,9.11,0.23,0,1,0,1,silicon,damaged,low,59.78
+microchip,3.41,5.33,0,1,0,1,silicon,damaged,medium,65.16
+microchip,7.46,6.1,0,1,0,1,silicon,working,high,66.51
+microchip,7.01,5.02,0,1,0,1,silicon,working,medium,54.98
+microchip,9.47,9.64,0,1,0,1,silicon,damaged,medium,70.41
+microchip,7.63,1.57,0,1,0,1,silicon,working,low,54.82
+microchip,4.6,14.71,0,1,0,1,silicon,working,medium,58.75
+microchip,7.51,10.58,0,1,0,1,silicon,damaged,medium,64.64
+microchip,4.28,4.0,0,1,0,1,silicon,working,medium,54.81
+microchip,6.74,14.53,0,1,0,1,silicon,damaged,low,60.09
+microchip,1.22,14.27,0,1,0,1,silicon,working,low,60.19
+microchip,6.66,4.05,0,1,0,1,silicon,working,high,74.69
+microchip,2.88,10.16,0,1,0,1,silicon,broken,medium,61.71
+microchip,6.18,13.0,0,1,0,1,silicon,broken,low,64.68
+microchip,1.97,14.17,0,1,0,1,silicon,broken,high,72.91
+microchip,7.16,10.22,0,1,0,1,silicon,damaged,low,59.11
+microchip,6.04,3.83,0,1,0,1,silicon,damaged,high,77.68
+microchip,2.29,10.1,0,1,0,1,silicon,broken,low,61.77
+microchip,0.58,6.53,0,1,0,1,silicon,working,high,58.21
+microchip,2.96,6.54,0,1,0,1,silicon,broken,low,68.57
+microchip,6.1,9.22,0,1,0,1,silicon,damaged,low,61.63
+microchip,2.39,13.17,0,1,0,1,silicon,broken,low,64.91
+microchip,2.86,3.26,0,1,0,1,silicon,working,low,53.95
+microchip,7.46,9.12,0,1,0,1,silicon,damaged,low,62.61
+microchip,9.54,12.59,0,1,0,1,silicon,broken,high,82.69
+microchip,2.4,9.27,0,1,0,1,silicon,broken,high,75.32
+microprocessor,5.45,1.07,0,1,0,1,silicon,damaged,high,80.55
+microprocessor,3.05,5.56,0,1,0,1,silicon,broken,medium,83.4
+microprocessor,7.98,6.84,0,1,0,1,silicon,damaged,low,67.94
+microprocessor,4.7,9.76,0,1,0,1,silicon,broken,low,79.65
+microprocessor,8.34,4.42,0,1,0,1,silicon,damaged,low,71.63
+microprocessor,1.03,7.39,0,1,0,1,silicon,broken,low,55.95
+microprocessor,7.76,6.17,0,1,0,1,silicon,damaged,low,69.25
+microprocessor,1.17,2.83,0,1,0,1,silicon,damaged,high,67.36
+microprocessor,8.23,10.29,0,1,0,1,silicon,working,low,60.93
+microprocessor,5.39,8.06,0,1,0,1,silicon,damaged,medium,65.96
+microprocessor,8.37,11.85,0,1,0,1,silicon,damaged,high,78.93
+microprocessor,3.87,7.61,0,1,0,1,silicon,broken,high,79.44
+microprocessor,1.47,5.92,0,1,0,1,silicon,damaged,medium,66.05
+microprocessor,6.93,12.58,0,1,0,1,silicon,broken,high,80.83
+microprocessor,4.67,9.18,0,1,0,1,silicon,working,medium,66.79
+microprocessor,2.68,1.81,0,1,0,1,silicon,working,low,53.43
+microprocessor,7.33,11.0,0,1,0,1,silicon,damaged,low,66.44
+microprocessor,1.5,3.37,0,1,0,1,silicon,damaged,medium,57.96
+microprocessor,2.83,0.91,0,1,0,1,silicon,damaged,low,68.35
+microprocessor,4.45,6.46,0,1,0,1,silicon,damaged,medium,79.12
+microprocessor,7.17,2.62,0,1,0,1,silicon,damaged,medium,74.39
+microprocessor,5.56,1.78,0,1,0,1,silicon,damaged,low,71.96
+microprocessor,3.7,2.19,0,1,0,1,silicon,damaged,low,68.85
+microprocessor,2.44,7.64,0,1,0,1,silicon,damaged,low,61.49
+microprocessor,8.03,1.08,0,1,0,1,silicon,damaged,medium,81.37
+microprocessor,2.91,0.2,0,1,0,1,silicon,broken,medium,76.34
+microprocessor,8.44,12.33,0,1,0,1,silicon,broken,medium,85.15
+microprocessor,4.79,2.79,0,1,0,1,silicon,broken,high,76.05
+microprocessor,4.93,1.18,0,1,0,1,silicon,damaged,high,74.18
+microprocessor,1.14,13.17,0,1,0,1,silicon,damaged,medium,63.99
+microprocessor,9.7,1.05,0,1,0,1,silicon,damaged,low,79.55
+microprocessor,4.62,14.96,0,1,0,1,silicon,damaged,medium,66.47
+microprocessor,2.59,5.29,0,1,0,1,silicon,damaged,low,59.86
+microprocessor,7.37,9.87,0,1,0,1,silicon,broken,low,64.02
+microprocessor,2.57,9.94,0,1,0,1,silicon,damaged,low,65.85
+microprocessor,5.71,1.04,0,1,0,1,silicon,broken,medium,78.91
+microprocessor,7.93,11.29,0,1,0,1,silicon,broken,medium,80.94
+microprocessor,6.39,11.15,0,1,0,1,silicon,working,low,59.29
+microprocessor,8.96,11.26,0,1,0,1,silicon,broken,high,93.94
+microprocessor,8.95,8.7,0,1,0,1,silicon,damaged,low,77.78
+microprocessor,5.0,10.76,0,1,0,1,silicon,working,low,56.06
+microprocessor,2.54,6.4,0,1,0,1,silicon,broken,medium,66.89
+microprocessor,2.29,1.2,0,1,0,1,silicon,damaged,medium,67.98
+microprocessor,8.06,4.12,0,1,0,1,silicon,damaged,low,76.25
+microprocessor,9.42,9.56,0,1,0,1,silicon,damaged,low,76.12
+microprocessor,2.58,8.95,0,1,0,1,silicon,working,medium,56.12
+microprocessor,8.24,11.68,0,1,0,1,silicon,broken,low,77.67
+microprocessor,4.0,6.51,0,1,0,1,silicon,working,low,57.3
+microprocessor,0.82,13.19,0,1,0,1,silicon,working,medium,58.71
+microprocessor,3.57,13.47,0,1,0,1,silicon,broken,medium,71.04
+Keyboard,9.06,14.94,0,0,0,1,plastic,broken,high,45.94
+Keyboard,1.14,1.47,0,0,0,1,plastic,broken,medium,19.03
+Keyboard,7.61,12.11,0,0,0,1,plastic,broken,high,36.33
+Keyboard,0.71,5.44,0,0,0,1,plastic,broken,medium,24.85
+Keyboard,3.47,9.83,0,0,0,1,plastic,working,low,20.32
+Keyboard,7.74,0.63,0,0,0,1,plastic,broken,medium,43.26
+Keyboard,5.85,9.39,0,0,0,1,plastic,broken,medium,34.5
+Keyboard,7.69,6.66,0,0,0,1,plastic,broken,medium,36.65
+Keyboard,2.67,8.97,0,0,0,1,plastic,broken,high,35.85
+Keyboard,2.51,14.93,0,0,0,1,plastic,broken,medium,18.27
+Keyboard,8.14,10.74,0,0,0,1,plastic,damaged,low,38.98
+Keyboard,6.94,5.63,0,0,0,1,plastic,broken,low,29.88
+Keyboard,5.25,10.38,0,0,0,1,plastic,damaged,medium,24.17
+Keyboard,6.54,9.01,0,0,0,1,plastic,working,high,27.39
+Keyboard,4.82,10.03,0,0,0,1,plastic,broken,low,37.01
+Keyboard,8.46,12.05,0,0,0,1,plastic,broken,medium,41.96
+Keyboard,5.14,6.06,0,0,0,1,plastic,working,medium,24.64
+Keyboard,6.04,8.91,0,0,0,1,plastic,damaged,low,25.04
+Keyboard,0.8,6.38,0,0,0,1,plastic,working,medium,10.55
+Keyboard,8.7,13.3,0,0,0,1,plastic,working,high,36.16
+Keyboard,3.22,12.05,0,0,0,1,plastic,broken,low,28.1
+Keyboard,9.75,7.0,0,0,0,1,plastic,broken,low,40.72
+Keyboard,3.69,1.05,0,0,0,1,plastic,broken,high,34.5
+Keyboard,1.17,3.2,0,0,0,1,plastic,working,medium,13.03
+Keyboard,3.05,1.56,0,0,0,1,plastic,working,low,16.27
+Keyboard,3.14,11.98,0,0,0,1,plastic,damaged,low,24.11
+Keyboard,2.71,1.99,0,0,0,1,plastic,working,medium,16.78
+Keyboard,2.5,12.14,0,0,0,1,plastic,working,medium,19.66
+Keyboard,8.71,2.37,0,0,0,1,plastic,working,medium,30.94
+Keyboard,8.14,2.1,0,0,0,1,plastic,damaged,medium,23.27
+Keyboard,1.87,9.38,0,0,0,1,plastic,working,medium,17.4
+Keyboard,3.41,12.34,0,0,0,1,plastic,working,medium,15.95
+Keyboard,4.86,10.89,0,0,0,1,plastic,damaged,medium,29.69
+Keyboard,3.48,8.09,0,0,0,1,plastic,broken,high,37.07
+Keyboard,8.95,5.6,0,0,0,1,plastic,working,medium,28.16
+Keyboard,5.09,12.58,0,0,0,1,plastic,damaged,high,41.16
+Keyboard,4.36,4.96,0,0,0,1,plastic,damaged,high,30.33
+Keyboard,9.54,2.67,0,0,0,1,plastic,damaged,medium,32.81
+Keyboard,5.15,9.69,0,0,0,1,plastic,working,medium,30.11
+Keyboard,1.84,8.58,0,0,0,1,plastic,working,low,8.92
+Keyboard,2.58,2.78,0,0,0,1,plastic,broken,low,20.34
+Keyboard,4.06,11.98,0,0,0,1,plastic,damaged,low,24.19
+Keyboard,5.79,12.68,0,0,0,1,plastic,broken,low,25.17
+Keyboard,2.57,13.12,0,0,0,1,plastic,working,low,19.27
+Keyboard,0.51,13.07,0,0,0,1,plastic,broken,medium,22.57
+Keyboard,4.85,5.3,0,0,0,1,plastic,working,medium,24.57
+Keyboard,9.25,0.65,0,0,0,1,plastic,working,low,27.33
+Keyboard,4.95,7.02,0,0,0,1,plastic,broken,low,28.48
+Keyboard,5.13,6.48,0,0,0,1,plastic,damaged,high,30.06
+Keyboard,8.36,2.6,0,0,0,1,plastic,working,low,31.48
+Mouse,3.73,7.68,0,0,0,1,plastic,damaged,high,31.14
+Mouse,0.98,0.57,0,0,0,1,plastic,damaged,medium,39.1
+Mouse,8.47,2.45,0,0,0,1,plastic,working,medium,22.86
+Mouse,6.28,4.25,0,0,0,1,plastic,working,medium,24.07
+Mouse,8.11,5.91,0,0,0,1,plastic,broken,low,28.52
+Mouse,6.94,8.51,0,0,0,1,plastic,broken,medium,37.19
+Mouse,1.13,0.34,0,0,0,1,plastic,broken,medium,21.1
+Mouse,3.78,0.5,0,0,0,1,plastic,broken,medium,32.39
+Mouse,9.37,4.02,0,0,0,1,plastic,damaged,medium,36.39
+Mouse,9.5,13.28,0,0,0,1,plastic,broken,low,31.97
+Mouse,3.18,14.45,0,0,0,1,plastic,working,high,27.14
+Mouse,9.91,4.71,0,0,0,1,plastic,damaged,low,37.22
+Mouse,4.71,3.95,0,0,0,1,plastic,damaged,high,33.26
+Mouse,1.09,1.43,0,0,0,1,plastic,working,medium,13.68
+Mouse,1.93,14.52,0,0,0,1,plastic,damaged,medium,19.96
+Mouse,6.79,11.28,0,0,0,1,plastic,broken,medium,25.03
+Mouse,9.09,12.27,0,0,0,1,plastic,broken,low,28.89
+Mouse,4.32,13.27,0,0,0,1,plastic,broken,high,43.22
+Mouse,3.48,10.38,0,0,0,1,plastic,working,low,12.58
+Mouse,4.58,12.47,0,0,0,1,plastic,working,high,19.59
+Mouse,5.55,4.35,0,0,0,1,plastic,damaged,low,16.48
+Mouse,2.06,1.79,0,0,0,1,plastic,damaged,high,36.03
+Mouse,3.77,11.01,0,0,0,1,plastic,damaged,high,29.97
+Mouse,6.74,13.48,0,0,0,1,plastic,damaged,medium,34.47
+Mouse,0.6,12.41,0,0,0,1,plastic,broken,low,15.25
+Mouse,1.63,14.71,0,0,0,1,plastic,working,low,24.5
+Mouse,6.15,11.1,0,0,0,1,plastic,working,medium,17.47
+Mouse,2.14,8.54,0,0,0,1,plastic,working,high,21.6
+Mouse,8.28,14.75,0,0,0,1,plastic,working,high,20.88
+Mouse,0.98,0.84,0,0,0,1,plastic,damaged,medium,15.17
+Mouse,2.65,9.23,0,0,0,1,plastic,working,medium,22.39
+Mouse,8.3,7.19,0,0,0,1,plastic,damaged,medium,28.09
+Mouse,8.15,4.96,0,0,0,1,plastic,working,low,14.63
+Mouse,8.49,3.36,0,0,0,1,plastic,damaged,high,21.57
+Mouse,8.32,5.8,0,0,0,1,plastic,damaged,medium,31.44
+Mouse,5.55,0.54,0,0,0,1,plastic,damaged,medium,28.57
+Mouse,2.03,9.86,0,0,0,1,plastic,broken,medium,24.33
+Mouse,4.47,1.79,0,0,0,1,plastic,damaged,high,30.55
+Mouse,6.79,1.2,0,0,0,1,plastic,damaged,medium,33.98
+Mouse,8.24,9.2,0,0,0,1,plastic,damaged,low,25.68
+Mouse,1.51,5.36,0,0,0,1,plastic,damaged,medium,17.48
+Mouse,4.25,2.77,0,0,0,1,plastic,working,high,25.4
+Mouse,0.9,6.32,0,0,0,1,plastic,working,high,11.77
+Mouse,5.27,10.99,0,0,0,1,plastic,broken,low,29.52
+Mouse,8.92,14.02,0,0,0,1,plastic,broken,medium,30.03
+Mouse,7.65,7.99,0,0,0,1,plastic,damaged,medium,37.98
+Mouse,7.45,12.38,0,0,0,1,plastic,working,high,35.18
+Mouse,4.6,5.72,0,0,0,1,plastic,broken,low,27.6
+Mouse,8.52,7.29,0,0,0,1,plastic,damaged,medium,21.69
+Mouse,0.87,4.12,0,0,0,1,plastic,working,high,23.11
+LED,9.67,5.96,0,0,0,1,semiconductor,broken,medium,46.72
+LED,9.49,6.03,0,0,0,1,semiconductor,broken,low,41.16
+LED,9.91,0.44,0,0,0,1,semiconductor,damaged,medium,33.21
+LED,9.42,2.76,0,0,0,1,semiconductor,damaged,low,34.93
+LED,3.42,8.22,0,0,0,1,semiconductor,damaged,low,22.62
+LED,7.69,13.47,0,0,0,1,semiconductor,working,medium,22.49
+LED,1.45,0.3,0,0,0,1,semiconductor,damaged,medium,21.76
+LED,0.73,12.53,0,0,0,1,semiconductor,broken,low,22.03
+LED,2.7,13.03,0,0,0,1,semiconductor,broken,medium,21.5
+LED,0.77,8.77,0,0,0,1,semiconductor,working,high,29.75
+LED,3.41,0.65,0,0,0,1,semiconductor,damaged,medium,27.32
+LED,3.11,10.66,0,0,0,1,semiconductor,working,high,28.89
+LED,4.06,8.27,0,0,0,1,semiconductor,working,medium,25.25
+LED,2.63,3.43,0,0,0,1,semiconductor,broken,high,38.3
+LED,1.41,6.78,0,0,0,1,semiconductor,damaged,high,14.57
+LED,3.68,5.95,0,0,0,1,semiconductor,damaged,low,22.64
+LED,5.93,12.09,0,0,0,1,semiconductor,broken,low,30.61
+LED,3.93,6.16,0,0,0,1,semiconductor,damaged,low,21.42
+LED,0.83,5.91,0,0,0,1,semiconductor,damaged,low,13.66
+LED,8.92,13.44,0,0,0,1,semiconductor,working,low,31.26
+LED,4.41,3.65,0,0,0,1,semiconductor,damaged,high,38.5
+LED,4.27,2.39,0,0,0,1,semiconductor,broken,medium,36.02
+LED,6.88,4.1,0,0,0,1,semiconductor,working,high,36.78
+LED,8.73,4.38,0,0,0,1,semiconductor,damaged,medium,44.24
+LED,4.41,6.44,0,0,0,1,semiconductor,damaged,medium,26.75
+LED,9.38,10.35,0,0,0,1,semiconductor,broken,medium,43.25
+LED,7.91,0.29,0,0,0,1,semiconductor,broken,low,31.1
+LED,7.77,3.83,0,0,0,1,semiconductor,broken,low,32.27
+LED,1.7,14.69,0,0,0,1,semiconductor,damaged,high,35.46
+LED,6.15,9.07,0,0,0,1,semiconductor,damaged,medium,25.33
+LED,4.58,4.18,0,0,0,1,semiconductor,broken,low,25.61
+LED,6.44,11.22,0,0,0,1,semiconductor,working,low,27.45
+LED,1.74,9.11,0,0,0,1,semiconductor,broken,low,22.38
+LED,5.05,13.94,0,0,0,1,semiconductor,damaged,medium,35.82
+LED,0.63,1.27,0,0,0,1,semiconductor,working,low,9.59
+LED,5.71,2.66,0,0,0,1,semiconductor,working,medium,35.12
+LED,9.67,0.8,0,0,0,1,semiconductor,broken,medium,41.57
+LED,1.16,1.39,0,0,0,1,semiconductor,damaged,medium,38.08
+LED,9.21,6.13,0,0,0,1,semiconductor,working,high,36.97
+LED,7.13,13.51,0,0,0,1,semiconductor,broken,medium,28.4
+LED,6.96,14.19,0,0,0,1,semiconductor,working,low,20.03
+LED,6.79,9.52,0,0,0,1,semiconductor,damaged,low,25.62
+LED,7.42,4.89,0,0,0,1,semiconductor,damaged,medium,28.74
+LED,1.4,12.48,0,0,0,1,semiconductor,broken,medium,27.21
+LED,1.48,6.06,0,0,0,1,semiconductor,broken,high,29.64
+LED,2.92,0.24,0,0,0,1,semiconductor,damaged,high,38.15
+LED,9.6,8.51,0,0,0,1,semiconductor,damaged,low,22.63
+LED,6.27,5.86,0,0,0,1,semiconductor,working,low,27.78
+LED,3.49,1.49,0,0,0,1,semiconductor,working,high,34.33
+LED,8.8,14.93,0,0,0,1,semiconductor,damaged,high,27.76
+Resistor,3.61,4.62,0,0,0,1,ceramic,damaged,medium,14.64
+Resistor,1.77,9.5,0,0,0,1,ceramic,working,medium,18.33
+Resistor,7.09,10.52,0,0,0,1,ceramic,broken,high,44.44
+Resistor,6.38,2.84,0,0,0,1,ceramic,working,low,16.57
+Resistor,4.71,9.28,0,0,0,1,ceramic,broken,low,23.79
+Resistor,6.06,8.14,0,0,0,1,ceramic,working,low,11.18
+Resistor,1.5,8.8,0,0,0,1,ceramic,damaged,low,19.77
+Resistor,0.9,7.5,0,0,0,1,ceramic,damaged,low,15.72
+Resistor,3.42,9.22,0,0,0,1,ceramic,broken,high,38.08
+Resistor,3.97,9.63,0,0,0,1,ceramic,damaged,low,20.82
+Resistor,7.17,8.37,0,0,0,1,ceramic,damaged,high,25.62
+Resistor,6.92,5.97,0,0,0,1,ceramic,broken,medium,36.53
+Resistor,4.42,14.02,0,0,0,1,ceramic,working,low,15.77
+Resistor,4.09,0.98,0,0,0,1,ceramic,damaged,medium,21.52
+Resistor,2.04,9.89,0,0,0,1,ceramic,broken,medium,17.29
+Resistor,1.59,13.25,0,0,0,1,ceramic,damaged,medium,8.95
+Resistor,6.77,6.66,0,0,0,1,ceramic,damaged,low,24.15
+Resistor,1.94,7.19,0,0,0,1,ceramic,damaged,medium,18.56
+Resistor,4.31,5.1,0,0,0,1,ceramic,working,medium,19.0
+Resistor,2.48,0.93,0,0,0,1,ceramic,damaged,medium,15.08
+Resistor,8.78,8.68,0,0,0,1,ceramic,damaged,high,29.09
+Resistor,5.88,13.62,0,0,0,1,ceramic,damaged,low,21.2
+Resistor,1.86,2.31,0,0,0,1,ceramic,damaged,medium,20.32
+Resistor,8.37,1.25,0,0,0,1,ceramic,damaged,medium,35.0
+Resistor,8.37,11.76,0,0,0,1,ceramic,working,high,29.74
+Resistor,6.02,14.04,0,0,0,1,ceramic,damaged,medium,11.36
+Resistor,8.19,14.26,0,0,0,1,ceramic,working,high,23.91
+Resistor,4.68,9.68,0,0,0,1,ceramic,damaged,low,17.0
+Resistor,6.19,13.54,0,0,0,1,ceramic,damaged,low,18.26
+Resistor,8.29,12.4,0,0,0,1,ceramic,damaged,medium,27.06
+Resistor,8.1,8.34,0,0,0,1,ceramic,broken,medium,34.48
+Resistor,4.43,14.37,0,0,0,1,ceramic,damaged,medium,28.38
+Resistor,2.59,9.4,0,0,0,1,ceramic,damaged,low,16.62
+Resistor,7.76,7.87,0,0,0,1,ceramic,working,medium,18.56
+Resistor,1.26,6.66,0,0,0,1,ceramic,working,low,6.5
+Resistor,0.99,6.0,0,0,0,1,ceramic,damaged,medium,10.2
+Resistor,4.14,12.6,0,0,0,1,ceramic,working,medium,24.68
+Resistor,8.84,8.39,0,0,0,1,ceramic,broken,low,39.75
+Resistor,1.43,0.71,0,0,0,1,ceramic,working,medium,10.09
+Resistor,9.49,12.64,0,0,0,1,ceramic,working,low,21.89
+Resistor,2.11,1.95,0,0,0,1,ceramic,working,medium,9.59
+Resistor,9.9,10.28,0,0,0,1,ceramic,broken,low,25.43
+Resistor,4.13,8.34,0,0,0,1,ceramic,working,low,18.96
+Resistor,4.4,7.37,0,0,0,1,ceramic,damaged,low,25.54
+Resistor,3.69,2.7,0,0,0,1,ceramic,working,high,28.18
+Resistor,3.5,5.93,0,0,0,1,ceramic,working,low,15.57
+Resistor,2.2,11.97,0,0,0,1,ceramic,damaged,medium,22.38
+Resistor,1.19,4.24,0,0,0,1,ceramic,damaged,high,21.55
+Resistor,9.93,3.65,0,0,0,1,ceramic,broken,high,37.38
+Resistor,4.39,14.67,0,0,0,1,ceramic,working,high,14.73
+semiconductor-diode,3.67,10.98,0,0,0,1,semiconductor,damaged,medium,32.69
+semiconductor-diode,8.73,0.94,0,0,0,1,semiconductor,damaged,low,37.47
+semiconductor-diode,4.45,8.25,0,0,0,1,semiconductor,damaged,medium,26.85
+semiconductor-diode,1.76,2.42,0,0,0,1,semiconductor,broken,high,45.79
+semiconductor-diode,9.12,14.87,0,0,0,1,semiconductor,working,medium,32.69
+semiconductor-diode,4.47,5.4,0,0,0,1,semiconductor,damaged,medium,42.05
+semiconductor-diode,2.03,7.1,0,0,0,1,semiconductor,damaged,medium,31.45
+semiconductor-diode,0.74,5.35,0,0,0,1,semiconductor,broken,medium,27.05
+semiconductor-diode,2.98,10.44,0,0,0,1,semiconductor,damaged,high,37.91
+semiconductor-diode,5.14,2.04,0,0,0,1,semiconductor,working,medium,35.04
+semiconductor-diode,6.19,7.73,0,0,0,1,semiconductor,working,low,17.09
+semiconductor-diode,7.48,0.41,0,0,0,1,semiconductor,damaged,high,41.06
+semiconductor-diode,2.16,7.1,0,0,0,1,semiconductor,working,medium,12.29
+semiconductor-diode,5.45,13.45,0,0,0,1,semiconductor,working,low,31.15
+semiconductor-diode,8.69,8.68,0,0,0,1,semiconductor,broken,medium,41.54
+semiconductor-diode,7.62,13.7,0,0,0,1,semiconductor,damaged,low,40.0
+semiconductor-diode,3.05,3.02,0,0,0,1,semiconductor,working,medium,35.2
+semiconductor-diode,4.55,9.25,0,0,0,1,semiconductor,working,low,30.48
+semiconductor-diode,2.13,7.8,0,0,0,1,semiconductor,working,low,26.4
+semiconductor-diode,0.63,9.76,0,0,0,1,semiconductor,damaged,high,28.97
+semiconductor-diode,9.36,0.35,0,0,0,1,semiconductor,working,high,50.56
+semiconductor-diode,6.8,10.2,0,0,0,1,semiconductor,broken,high,37.8
+semiconductor-diode,7.34,4.34,0,0,0,1,semiconductor,broken,low,39.69
+semiconductor-diode,2.93,3.35,0,0,0,1,semiconductor,working,high,28.26
+semiconductor-diode,5.25,10.14,0,0,0,1,semiconductor,working,high,28.98
+semiconductor-diode,4.4,3.18,0,0,0,1,semiconductor,broken,medium,42.01
+semiconductor-diode,9.38,4.59,0,0,0,1,semiconductor,broken,high,44.14
+semiconductor-diode,6.88,10.95,0,0,0,1,semiconductor,damaged,low,30.9
+semiconductor-diode,5.29,4.72,0,0,0,1,semiconductor,damaged,medium,28.77
+semiconductor-diode,4.35,4.07,0,0,0,1,semiconductor,working,high,35.35
+semiconductor-diode,9.14,5.58,0,0,0,1,semiconductor,broken,high,47.01
+semiconductor-diode,9.58,5.68,0,0,0,1,semiconductor,damaged,low,38.23
+semiconductor-diode,5.12,1.68,0,0,0,1,semiconductor,working,medium,28.97
+semiconductor-diode,3.37,12.89,0,0,0,1,semiconductor,broken,high,41.12
+semiconductor-diode,1.89,10.37,0,0,0,1,semiconductor,broken,medium,32.88
+semiconductor-diode,6.63,7.68,0,0,0,1,semiconductor,working,medium,19.52
+semiconductor-diode,8.12,12.93,0,0,0,1,semiconductor,working,high,43.15
+semiconductor-diode,7.64,12.19,0,0,0,1,semiconductor,broken,medium,35.17
+semiconductor-diode,8.66,2.02,0,0,0,1,semiconductor,broken,high,42.27
+semiconductor-diode,8.79,2.57,0,0,0,1,semiconductor,working,high,42.29
+semiconductor-diode,5.02,12.74,0,0,0,1,semiconductor,damaged,low,30.42
+semiconductor-diode,2.3,10.82,0,0,0,1,semiconductor,damaged,medium,34.59
+semiconductor-diode,4.88,12.44,0,0,0,1,semiconductor,broken,high,48.41
+semiconductor-diode,3.95,13.2,0,0,0,1,semiconductor,broken,low,38.21
+semiconductor-diode,4.37,13.3,0,0,0,1,semiconductor,working,high,36.89
+semiconductor-diode,3.07,3.77,0,0,0,1,semiconductor,broken,low,38.87
+semiconductor-diode,7.87,5.93,0,0,0,1,semiconductor,working,low,30.92
+semiconductor-diode,4.01,5.39,0,0,0,1,semiconductor,damaged,medium,31.21
+semiconductor-diode,4.69,13.2,0,0,0,1,semiconductor,damaged,medium,31.12
+semiconductor-diode,6.8,8.95,0,0,0,1,semiconductor,damaged,medium,34.67
+transistor,7.96,2.98,0,0,0,1,semiconductor,broken,medium,30.94
+transistor,2.94,11.29,0,0,0,1,semiconductor,damaged,medium,12.83
+transistor,6.16,14.94,0,0,0,1,semiconductor,damaged,high,31.95
+transistor,2.44,6.31,0,0,0,1,semiconductor,working,low,14.86
+transistor,9.19,12.67,0,0,0,1,semiconductor,broken,low,37.4
+transistor,4.59,1.83,0,0,0,1,semiconductor,damaged,medium,27.73
+transistor,4.06,9.34,0,0,0,1,semiconductor,broken,low,34.36
+transistor,3.74,6.69,0,0,0,1,semiconductor,damaged,medium,23.37
+transistor,8.68,13.0,0,0,0,1,semiconductor,working,high,34.41
+transistor,5.09,14.8,0,0,0,1,semiconductor,broken,low,29.52
+transistor,5.61,14.88,0,0,0,1,semiconductor,broken,low,25.55
+transistor,0.57,6.08,0,0,0,1,semiconductor,working,high,27.37
+transistor,3.7,12.42,0,0,0,1,semiconductor,working,medium,16.65
+transistor,1.15,2.85,0,0,0,1,semiconductor,damaged,low,14.92
+transistor,4.47,5.68,0,0,0,1,semiconductor,broken,high,26.32
+transistor,1.51,14.3,0,0,0,1,semiconductor,working,low,13.84
+transistor,3.33,4.84,0,0,0,1,semiconductor,working,high,26.58
+transistor,1.68,1.1,0,0,0,1,semiconductor,broken,low,20.09
+transistor,8.3,8.19,0,0,0,1,semiconductor,working,high,35.38
+transistor,2.1,12.82,0,0,0,1,semiconductor,working,medium,16.09
+transistor,7.81,14.03,0,0,0,1,semiconductor,broken,high,40.89
+transistor,3.2,4.37,0,0,0,1,semiconductor,damaged,medium,25.86
+transistor,5.67,2.44,0,0,0,1,semiconductor,damaged,low,25.68
+transistor,8.07,11.11,0,0,0,1,semiconductor,damaged,low,19.26
+transistor,5.7,1.36,0,0,0,1,semiconductor,damaged,medium,26.63
+transistor,2.2,5.91,0,0,0,1,semiconductor,broken,low,24.68
+transistor,7.75,1.67,0,0,0,1,semiconductor,broken,medium,33.28
+transistor,6.46,2.92,0,0,0,1,semiconductor,working,high,35.55
+transistor,9.22,13.32,0,0,0,1,semiconductor,damaged,high,37.81
+transistor,3.48,9.55,0,0,0,1,semiconductor,damaged,low,19.58
+transistor,6.17,12.23,0,0,0,1,semiconductor,damaged,low,23.18
+transistor,3.35,9.66,0,0,0,1,semiconductor,damaged,medium,21.47
+transistor,3.94,12.37,0,0,0,1,semiconductor,working,medium,18.29
+transistor,1.54,13.26,0,0,0,1,semiconductor,damaged,medium,24.78
+transistor,0.74,10.37,0,0,0,1,semiconductor,damaged,low,11.13
+transistor,4.17,1.25,0,0,0,1,semiconductor,working,low,21.22
+transistor,1.35,13.67,0,0,0,1,semiconductor,working,medium,15.17
+transistor,9.3,2.47,0,0,0,1,semiconductor,broken,low,32.3
+transistor,7.54,8.22,0,0,0,1,semiconductor,broken,medium,29.37
+transistor,2.08,13.75,0,0,0,1,semiconductor,damaged,medium,23.91
+transistor,7.72,5.12,0,0,0,1,semiconductor,broken,high,46.33
+transistor,0.97,3.89,0,0,0,1,semiconductor,damaged,low,19.67
+transistor,7.57,13.79,0,0,0,1,semiconductor,damaged,medium,31.03
+transistor,5.15,5.31,0,0,0,1,semiconductor,broken,medium,35.4
+transistor,7.74,12.19,0,0,0,1,semiconductor,damaged,medium,29.65
+transistor,8.04,14.12,0,0,0,1,semiconductor,damaged,high,42.07
+transistor,8.15,12.68,0,0,0,1,semiconductor,damaged,low,37.57
+transistor,4.78,11.25,0,0,0,1,semiconductor,damaged,medium,22.45
+transistor,2.27,11.25,0,0,0,1,semiconductor,damaged,low,25.45
+transistor,5.08,3.28,0,0,0,1,semiconductor,broken,high,33.4
+heat-sink,9.59,6.44,0,0,0,1,metal,damaged,high,38.67
+heat-sink,2.9,6.73,0,0,0,1,metal,working,low,7.46
+heat-sink,0.51,0.64,0,0,0,1,metal,broken,low,17.56
+heat-sink,5.73,2.34,0,0,0,1,metal,broken,medium,25.91
+heat-sink,7.45,11.56,0,0,0,1,metal,broken,medium,32.42
+heat-sink,1.15,13.47,0,0,0,1,metal,working,medium,0.06
+heat-sink,8.25,8.98,0,0,0,1,metal,damaged,medium,20.31
+heat-sink,8.76,1.37,0,0,0,1,metal,broken,high,37.71
+heat-sink,2.23,6.48,0,0,0,1,metal,working,high,24.26
+heat-sink,2.37,3.22,0,0,0,1,metal,working,medium,11.4
+heat-sink,5.82,12.88,0,0,0,1,metal,damaged,medium,18.97
+heat-sink,2.96,0.84,0,0,0,1,metal,broken,low,20.28
+heat-sink,3.38,8.01,0,0,0,1,metal,damaged,medium,13.08
+heat-sink,6.36,14.55,0,0,0,1,metal,broken,high,24.03
+heat-sink,7.74,8.9,0,0,0,1,metal,working,medium,23.42
+heat-sink,5.15,7.95,0,0,0,1,metal,damaged,medium,25.93
+heat-sink,2.38,12.09,0,0,0,1,metal,working,low,15.18
+heat-sink,4.66,4.19,0,0,0,1,metal,damaged,medium,13.11
+heat-sink,9.36,13.84,0,0,0,1,metal,damaged,medium,13.65
+heat-sink,9.25,0.23,0,0,0,1,metal,damaged,high,27.27
+heat-sink,5.11,1.33,0,0,0,1,metal,broken,medium,15.83
+heat-sink,5.09,6.47,0,0,0,1,metal,working,low,12.6
+heat-sink,8.46,3.64,0,0,0,1,metal,working,medium,12.76
+heat-sink,0.85,0.84,0,0,0,1,metal,broken,low,14.26
+heat-sink,0.93,6.6,0,0,0,1,metal,broken,low,10.8
+heat-sink,4.77,8.69,0,0,0,1,metal,damaged,medium,16.71
+heat-sink,3.5,1.64,0,0,0,1,metal,damaged,low,20.24
+heat-sink,3.21,9.48,0,0,0,1,metal,damaged,medium,18.82
+heat-sink,7.7,4.26,0,0,0,1,metal,damaged,high,26.44
+heat-sink,9.17,9.17,0,0,0,1,metal,damaged,low,17.31
+heat-sink,3.76,12.79,0,0,0,1,metal,damaged,medium,15.12
+heat-sink,6.23,1.24,0,0,0,1,metal,damaged,high,26.31
+heat-sink,5.97,1.94,0,0,0,1,metal,damaged,high,28.76
+heat-sink,6.66,13.49,0,0,0,1,metal,damaged,low,15.81
+heat-sink,3.44,3.07,0,0,0,1,metal,broken,high,19.22
+heat-sink,2.25,11.36,0,0,0,1,metal,damaged,low,15.64
+heat-sink,6.36,0.65,0,0,0,1,metal,damaged,medium,17.6
+heat-sink,2.43,11.55,0,0,0,1,metal,damaged,medium,12.12
+heat-sink,0.7,0.56,0,0,0,1,metal,damaged,high,20.35
+heat-sink,4.19,12.45,0,0,0,1,metal,working,high,16.68
+heat-sink,7.64,14.12,0,0,0,1,metal,damaged,medium,20.89
+heat-sink,3.66,10.53,0,0,0,1,metal,broken,high,26.59
+heat-sink,2.45,11.98,0,0,0,1,metal,broken,low,8.17
+heat-sink,3.39,14.75,0,0,0,1,metal,damaged,high,16.19
+heat-sink,9.78,5.69,0,0,0,1,metal,broken,medium,28.67
+heat-sink,9.5,3.32,0,0,0,1,metal,damaged,high,30.41
+heat-sink,4.24,9.14,0,0,0,1,metal,damaged,high,20.15
+heat-sink,2.1,5.35,0,0,0,1,metal,damaged,low,0.69
+heat-sink,6.04,13.27,0,0,0,1,metal,working,medium,9.66
+heat-sink,7.16,6.19,0,0,0,1,metal,damaged,low,26.73
