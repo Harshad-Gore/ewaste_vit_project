@@ -1,8 +1,7 @@
 {
-  "model": "ANN (Hazard Score Predictor)",
-  "test_mae": 7.6415,
-  "test_r2": 0.8771,
-  "hazard_class_accuracy": 0.8333,
+  "model": "HazardANN",
+  "architecture": "13->256->128->64->32->1",
+  "total_parameters": 47771,
   "features": [
     "component_enc",
     "age_years",
@@ -10,11 +9,51 @@
     "contains_lithium",
     "contains_lead",
     "contains_mercury",
+    "contains_cadmium",
     "recyclable",
     "material_enc",
+    "wclass_enc",
     "condition_enc",
-    "region_enc"
+    "region_enc",
+    "disposal_enc"
   ],
-  "num_epochs": 100,
-  "best_val_mse": 71.4558
+  "n_samples": {
+    "train": 2100,
+    "val": 450,
+    "test": 450
+  },
+  "regression_metrics": {
+    "mae": 3.7365,
+    "rmse": 4.7489,
+    "r2": 0.9685,
+    "mape": 138719664.0
+  },
+  "classification_metrics": {
+    "hazard_class_accuracy": 0.8911,
+    "f1_HIGH": 0.9316,
+    "f1_MEDIUM": 0.7783,
+    "f1_LOW": 0.9225
+  },
+  "top_features": [
+    {
+      "feature": "wclass_enc",
+      "importance": 0.1332
+    },
+    {
+      "feature": "contains_lead",
+      "importance": 0.1329
+    },
+    {
+      "feature": "condition_enc",
+      "importance": 0.1084
+    },
+    {
+      "feature": "region_enc",
+      "importance": 0.1072
+    },
+    {
+      "feature": "material_enc",
+      "importance": 0.101
+    }
+  ]
 }

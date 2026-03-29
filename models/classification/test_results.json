@@ -1,0 +1,26 @@
+{
+  "resnet18": {
+    "test_accuracy": 0.8575,
+    "test_loss": 0.4903,
+    "macro_f1": 0.8543,
+    "weighted_f1": 0.8543,
+    "macro_precision": 0.8569,
+    "macro_recall": 0.8575
+  },
+  "resnet50": {
+    "test_accuracy": 0.8655,
+    "test_loss": 0.4671,
+    "macro_f1": 0.8619,
+    "weighted_f1": 0.8619,
+    "macro_precision": 0.8659,
+    "macro_recall": 0.8655
+  },
+  "efficientnet_b0": {
+    "test_accuracy": 0.8265,
+    "test_loss": 0.5391,
+    "macro_f1": 0.8207,
+    "weighted_f1": 0.8207,
+    "macro_precision": 0.831,
+    "macro_recall": 0.8265
+  }
+}

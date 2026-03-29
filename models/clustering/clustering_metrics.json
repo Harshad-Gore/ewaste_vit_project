@@ -1,0 +1,10 @@
+{
+  "silhouette_score": 0.1662,
+  "davies_bouldin_index": 4.0827,
+  "calinski_harabasz_index": 151.6768,
+  "adjusted_rand_index": 0.0251,
+  "normalized_mutual_info": 0.034,
+  "homogeneity": 0.028,
+  "completeness": 0.0434,
+  "v_measure": 0.034
+}

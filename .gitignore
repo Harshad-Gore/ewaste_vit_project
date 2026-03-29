@@ -40,3 +40,6 @@ build/
 uploads/
 media/
 staticfiles/
+.venv/
+*.pth
+*.npy
