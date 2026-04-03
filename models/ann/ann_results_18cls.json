@@ -1,0 +1,24 @@
+{
+  "model": "HazardANN_18cls",
+  "features": [
+    "comp_enc",
+    "age_years",
+    "weight_kg",
+    "contains_lithium",
+    "contains_lead",
+    "contains_mercury",
+    "contains_cadmium",
+    "contains_cfc",
+    "recyclable",
+    "mat_enc",
+    "wc_enc",
+    "cond_enc",
+    "reg_enc",
+    "disp_enc"
+  ],
+  "mae": 2.7732,
+  "rmse": 3.9278,
+  "r2": 0.9846,
+  "mape": 7.2,
+  "hazard_class_accuracy": 0.9506
+}

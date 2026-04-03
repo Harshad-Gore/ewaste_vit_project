@@ -34,6 +34,11 @@ from evaluation.metrics import (  # noqa: E402
     compute_classification_metrics,
     write_metrics_json,
 )
+from training.checkpoint_utils import (  # noqa: E402
+    discover_classification_checkpoints,
+    extract_model_state_dict,
+    read_best_model_info,
+)
 from training.hardware_utils import detect_runtime  # noqa: E402
 
 
@@ -262,12 +267,7 @@ def extract_embeddings(
 
 
 def discover_checkpoints(classification_dir: Path) -> dict[str, Path]:
-    out: dict[str, Path] = {}
-    for arch in SUPPORTED_ARCHES:
-        p = classification_dir / arch / f"{arch}_best.pth"
-        if p.exists():
-            out[arch] = p
-    return out
+    return discover_classification_checkpoints(classification_dir, SUPPORTED_ARCHES)
 
 
 def run_hierarchical_svm(
@@ -370,7 +370,8 @@ def main() -> None:
 
     for arch, ckpt_path in ckpt_map.items():
         model = build_model_for_inference(arch, num_classes=num_classes).to(device)
-        state = torch.load(ckpt_path, map_location=device)
+        raw_ckpt = torch.load(ckpt_path, map_location=device)
+        state = extract_model_state_dict(raw_ckpt)
         model.load_state_dict(state)
 
         start = time.time()
@@ -394,12 +395,8 @@ def main() -> None:
     if args.embedding_arch:
         embedding_arch = args.embedding_arch
     else:
-        best_info_path = classification_dir / "best_model.json"
-        if best_info_path.exists():
-            with best_info_path.open("r", encoding="utf-8") as fp:
-                embedding_arch = json.load(fp).get("best_arch", "")
-        else:
-            embedding_arch = ""
+        best_info = read_best_model_info(classification_dir)
+        embedding_arch = best_info.get("best_arch", "") if best_info else ""
 
     if embedding_arch not in ckpt_map:
         embedding_arch = max(
@@ -408,7 +405,8 @@ def main() -> None:
         )
 
     emb_model = build_model_for_inference(embedding_arch, num_classes=num_classes).to(device)
-    emb_model.load_state_dict(torch.load(ckpt_map[embedding_arch], map_location=device))
+    emb_raw_ckpt = torch.load(ckpt_map[embedding_arch], map_location=device)
+    emb_model.load_state_dict(extract_model_state_dict(emb_raw_ckpt))
 
     embed_loader = DataLoader(
         ConcatDataset([train_ds, val_ds, test_ds]),

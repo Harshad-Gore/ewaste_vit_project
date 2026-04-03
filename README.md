@@ -40,6 +40,13 @@ run everything end-to-end:
 python run_system.py all
 ```
 
+by default, this reuses existing checkpoints in `models/classification` when available.
+to force retraining of classification models:
+
+```bash
+python run_system.py all --force-train
+```
+
 this executes, in order:
 
 1. adaptive deep-learning benchmark training

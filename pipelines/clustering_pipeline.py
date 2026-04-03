@@ -29,6 +29,22 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from training.hardware_utils import detect_runtime  # noqa: E402
+from training.checkpoint_utils import (  # noqa: E402
+    discover_classification_checkpoints,
+    extract_model_state_dict,
+    read_best_model_info,
+)
+
+
+SUPPORTED_ARCHES = [
+    "resnet18",
+    "resnet50",
+    "efficientnet_b0",
+    "efficientnet_b3",
+    "convnext_tiny",
+    "swin_tiny",
+    "vit_b16",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,16 +100,8 @@ def main() -> None:
     runtime = detect_runtime()
     device = runtime.device
 
-    best_info_path = cls_dir / "best_model.json"
-    if not best_info_path.exists():
-        raise FileNotFoundError(f"best model file not found: {best_info_path}")
-
-    with best_info_path.open("r", encoding="utf-8") as fp:
-        best_info = json.load(fp)
-
-    best_arch = best_info.get("best_arch", "resnet50")
-    if best_arch != "resnet50":
-        print(f"best model is {best_arch}; clustering pipeline currently uses resnet50 extractor")
+    best_info = read_best_model_info(cls_dir)
+    best_arch = best_info.get("best_arch", "resnet50") if best_info else "resnet50"
 
     transform = transforms.Compose(
         [
@@ -110,15 +118,23 @@ def main() -> None:
     class_names = train_ds.classes
     num_classes = len(class_names)
 
-    checkpoint_path = cls_dir / "resnet50" / "resnet50_best.pth"
-    if not checkpoint_path.exists():
-        fallback = cls_dir / best_arch / f"{best_arch}_best.pth"
-        if not fallback.exists():
-            raise FileNotFoundError("no suitable checkpoint found for clustering feature extraction")
-        checkpoint_path = fallback
+    ckpt_map = discover_classification_checkpoints(cls_dir, SUPPORTED_ARCHES)
+    if not ckpt_map:
+        raise FileNotFoundError(
+            f"no checkpoints found under {cls_dir}. expected files like <arch>/<arch>_best.pth or <arch>_best.pth"
+        )
+
+    checkpoint_path = ckpt_map.get("resnet50")
+    if checkpoint_path is None:
+        discovered = ", ".join(sorted(ckpt_map.keys()))
+        raise FileNotFoundError(
+            "resnet50 checkpoint not found for clustering feature extraction. "
+            f"best_arch={best_arch}; discovered={discovered}"
+        )
 
     model = build_resnet50_model(num_classes=num_classes).to(device)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    raw_ckpt = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(extract_model_state_dict(raw_ckpt))
 
     full_ds = ConcatDataset([train_ds, val_ds, test_ds])
     full_loader = DataLoader(

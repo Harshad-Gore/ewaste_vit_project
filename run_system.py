@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from training.checkpoint_utils import has_any_classification_checkpoint
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
@@ -32,6 +34,11 @@ def parse_args() -> argparse.Namespace:
     p_all = sub.add_parser("all", help="run full pipeline in sequence")
     p_all.add_argument("--arches", type=str, default="resnet50,vit_b16,convnext_tiny,swin_tiny,efficientnet_b3")
     p_all.add_argument("--epochs", type=int, default=30)
+    p_all.add_argument(
+        "--force-train",
+        action="store_true",
+        help="retrain classification models even when existing checkpoints are found",
+    )
 
     return parser.parse_args()
 
@@ -100,20 +107,26 @@ def main() -> None:
         return
 
     if args.command == "all":
-        run_cmd(
-            [
-                py,
-                str(PROJECT_ROOT / "training" / "research_benchmark.py"),
-                "--data-dir",
-                str(PROJECT_ROOT / "data"),
-                "--output-dir",
-                str(PROJECT_ROOT / "models" / "classification"),
-                "--arches",
-                args.arches,
-                "--epochs",
-                str(args.epochs),
-            ]
-        )
+        classification_dir = PROJECT_ROOT / "models" / "classification"
+        should_train = args.force_train or not has_any_classification_checkpoint(classification_dir)
+
+        if should_train:
+            run_cmd(
+                [
+                    py,
+                    str(PROJECT_ROOT / "training" / "research_benchmark.py"),
+                    "--data-dir",
+                    str(PROJECT_ROOT / "data"),
+                    "--output-dir",
+                    str(classification_dir),
+                    "--arches",
+                    args.arches,
+                    "--epochs",
+                    str(args.epochs),
+                ]
+            )
+        else:
+            print("existing classification checkpoints found; skipping training (use --force-train to retrain)")
 
         run_cmd(
             [

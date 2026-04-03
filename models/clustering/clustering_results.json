@@ -1,12 +1,12 @@
 {
   "n_clusters": 3,
-  "silhouette_score": 0.039,
-  "adjusted_rand_index": 0.1435,
-  "normalized_mutual_info": 0.3072,
-  "total_samples": 12706,
+  "silhouette_score": 0.0638,
+  "adjusted_rand_index": 0.1612,
+  "normalized_mutual_info": 0.3977,
+  "total_samples": 27399,
   "cluster_sizes": {
-    "0": 4842,
-    "1": 4625,
-    "2": 3239
+    "0": 7500,
+    "1": 6248,
+    "2": 13651
   }
 }
