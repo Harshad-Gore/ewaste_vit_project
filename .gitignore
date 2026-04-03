@@ -43,3 +43,7 @@ staticfiles/
 .venv/
 *.pth
 *.npy
+data/*
+!data/.gitkeep
+*.pdf
+*.docx
