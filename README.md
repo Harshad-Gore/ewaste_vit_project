@@ -30,6 +30,25 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+## dashboard launch (important)
+
+do not run the dashboard with `python app.py`.
+always launch with streamlit:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+for optional llm-augmented agent explanations, set your api key as an environment variable (never hardcode in code):
+
+```powershell
+# current terminal session only
+$env:GROQ_API_KEY = "<your_key_here>"
+
+# optional: set default model
+$env:GROQ_MODEL = "openai/gpt-oss-20b"
+```
+
 ## script-first workflow (recommended)
 
 all production/reproducible logic is available as python scripts. notebooks are retained for exploration and paper traceability.

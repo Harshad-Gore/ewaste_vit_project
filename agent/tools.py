@@ -48,6 +48,28 @@ MATERIAL_MAP = {
 }
 
 
+RISK_DRIVER_MAP = {
+	"Battery": "lithium, cadmium, lead, and electrolyte leakage",
+	"PCB": "lead solder, brominated resins, and mixed heavy metals",
+	"Mobile": "integrated battery packs, mixed metals, and bonded electronics",
+	"Television": "lead-bearing glass, mercury-bearing parts, and mixed plastics",
+	"Laptop": "embedded batteries, soldered boards, and mixed alloys",
+	"light bulbs": "mercury exposure risk and fragile glass breakage",
+	"Refrigerator": "refrigerants, compressor oils, and heavy appliance metals",
+	"Air-Conditioner": "refrigerants, compressor assemblies, and copper-aluminium systems",
+	"Microwave": "magnetron assemblies, capacitors, and appliance metals",
+	"Washing Machine": "motors, metal chassis, and mixed polymers",
+	"Printer": "toner residue, embedded pcb assemblies, and mixed plastics",
+	"Microchip-IC": "semiconductor packaging and concentrated metal traces",
+	"Keyboard": "membrane layers, copper traces, and mixed polymers",
+	"Mouse": "small pcb assemblies and mixed plastics",
+	"Resistor": "ceramic bodies and metal or carbon films",
+	"transistor": "semiconductor packaging and small metal leads",
+	"heat-sink": "metal recovery handling rather than toxic content",
+	"Passive-Component": "small electronic assemblies requiring controlled sorting",
+}
+
+
 DISPOSAL_MAP = {
 	"Battery": "send to hazardous battery recycling facility",
 	"PCB": "send to certified ewaste recycler for metal recovery",
@@ -129,16 +151,19 @@ def disposal_recommendation(
 	confidence: float,
 	llm_fn: Callable[[str], str] | None = None,
 ) -> RecommendationResult:
+	risk_drivers = RISK_DRIVER_MAP.get(lookup.component, lookup.material_profile)
 	if llm_fn is None:
 		if confidence < 0.70:
 			explanation = (
-				f"prediction confidence is {confidence:.2%}, below operating threshold. "
-				f"route item to assisted/manual verification before final disposal."
+				f"{lookup.component} maps to {lookup.hazard_level} risk because the main risk drivers are "
+				f"{risk_drivers}. confidence is {confidence:.2%}, below the operating threshold, so final routing "
+				f"should be held for human review. provisional pathway: {lookup.disposal_pathway}."
 			)
 		else:
 			explanation = (
-				f"{lookup.component} is tagged {lookup.hazard_level} risk based on material profile "
-				f"({lookup.material_profile}). recommended action: {lookup.disposal_pathway}."
+				f"{lookup.component} maps to {lookup.hazard_level} risk because the main risk drivers are "
+				f"{risk_drivers}. the material profile is {lookup.material_profile}. recommended action: "
+				f"{lookup.disposal_pathway}."
 			)
 		return RecommendationResult(
 			short_recommendation=lookup.disposal_pathway,
