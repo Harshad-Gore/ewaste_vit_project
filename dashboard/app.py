@@ -65,6 +65,14 @@ TONE_CLASS = {
 	"danger": "tone-danger",
 }
 
+WORKSPACES = [
+	"Operations",
+	"Policy",
+	"Benchmarks",
+	"Analytics",
+	"Registry",
+]
+
 
 def inject_styles() -> None:
 	st.markdown(
@@ -1005,7 +1013,7 @@ def _is_streamlit_runtime_active() -> bool:
 
 
 def main() -> None:
-	st.set_page_config(page_title="E-Waste Research Command Center", layout="wide")
+	st.set_page_config(page_title="E-Waste Operations Console", layout="wide")
 	inject_styles()
 
 	runtime = detect_runtime()
@@ -1015,22 +1023,18 @@ def main() -> None:
 	clustering_dir = PROJECT_ROOT / "models" / "clustering"
 
 	with st.sidebar:
-		st.markdown("### Research Console")
-		st.caption("Perception, hazard reasoning, benchmark evidence, and analytics in one publication-ready interface.")
+		st.markdown("### Operations Console")
+		st.caption("Classification, review routing, benchmark records, and data registry for the current research system.")
 		confidence_threshold = st.slider("Human review threshold", 0.50, 0.95, 0.70, 0.01)
 		enable_scene_scan = st.checkbox("Enable composite scene scan", value=True)
 		scene_grid = st.selectbox("Scene scan grid", options=[2, 3], index=1)
 		scene_tile_floor = st.slider("Tile evidence floor", 0.10, 0.80, 0.30, 0.05)
-		workspace = st.radio(
-			"Workspace",
-			options=["Mission Control", "Policy & Disposal", "Benchmark Evidence", "Research Analytics", "Registry & Data"],
-			index=0,
-		)
+		workspace = st.selectbox("View", options=WORKSPACES, index=0)
 		st.markdown("### Runtime")
 		st.caption(f"Device: {runtime.device.type}")
 		st.caption(f"GPU: {runtime.gpu_name or 'not detected'}")
 		st.caption(f"VRAM: {f'{runtime.vram_gb:.2f} GB' if runtime.vram_gb is not None else 'n/a'}")
-		st.info("The classifier is strongest on isolated single-component photos. Mixed scenes should be shown as triage, not true detection.")
+		st.info("This model is strongest on isolated single-component images. Mixed scenes should be treated as triage support, not detection output.")
 
 	try:
 		assets = discover_dashboard_assets(str(classification_dir), str(data_dir))
@@ -1062,18 +1066,17 @@ def main() -> None:
 	clustering_metrics = supporting["clustering_metrics"]
 	clustering_results = supporting["clustering_results"]
 
-	st.caption("PUBLICATION-READY RESEARCH INTERFACE")
-	st.title("E-Waste Intelligence Command Center")
+	st.caption("CURRENT CLASSIFICATION SYSTEM")
+	st.title("E-Waste Operations Console")
 	st.write(
-		"A professional research console for component inference, composite-scene triage, hazard-aware decision support, "
-		"and benchmark evidence review. This interface is designed to explain not only what the model predicts, but also "
-		"when the input is outside the single-label assumptions of the training data."
+		"This interface presents the current single-label classifier, policy outputs, benchmark records, and supporting analytics "
+		"in one place. It also marks when an input is outside the assumptions of the training data, especially for mixed-object scenes."
 	)
 
 	if discrepancy_note:
 		render_banner(
-			"Why the 95% headline does not match the collage upload",
-			discrepancy_note + " Your example image is also a mixed-object scene, and a low live confidence is the model signaling uncertainty rather than confidence.",
+			"Benchmark context",
+			discrepancy_note + " The collage example is a mixed-object scene, so a low live confidence is an uncertainty signal rather than a reliable single-class decision.",
 			tone="warning",
 		)
 
@@ -1104,17 +1107,17 @@ def main() -> None:
 	if "llm_discussion_summary" not in st.session_state:
 		st.session_state["llm_discussion_summary"] = None
 
-	if workspace == "Mission Control":
+	if workspace == "Operations":
 		render_section_intro(
-			"Live Inference",
-			"Run the model like an operations workflow, not a toy upload box",
-			"This view separates the single-label prediction from composite-scene evidence so mixed e-waste collages are explained honestly.",
+			"Inference",
+			"Operational inference review",
+			"Submit an image, inspect confidence distribution, and review composite-scene cues before any downstream routing decision.",
 		)
 
 		left, right = st.columns([1.08, 0.92], gap="large")
 		with left:
 			uploaded = st.file_uploader(
-				"Upload an e-waste image",
+				"Image intake",
 				type=["jpg", "jpeg", "png", "webp"],
 				accept_multiple_files=False,
 				help="Best performance comes from a single dominant component in frame.",
@@ -1122,11 +1125,11 @@ def main() -> None:
 			upload_token = f"{uploaded.name}:{uploaded.size}" if uploaded is not None else None
 			a1, a2, a3 = st.columns(3)
 			with a1:
-				sample_btn = st.button("Load test sample")
+				sample_btn = st.button("Load test image")
 			with a2:
-				clear_btn = st.button("Clear image")
+				clear_btn = st.button("Clear")
 			with a3:
-				run_btn = st.button("Run research inference", type="primary")
+				run_btn = st.button("Run inference", type="primary")
 
 			if uploaded is not None and upload_token != st.session_state.get("last_upload_token"):
 				st.session_state["pending_image"] = Image.open(uploaded).convert("RGB")
@@ -1154,11 +1157,11 @@ def main() -> None:
 					[
 						f"source: {st.session_state.get('pending_image_label') or 'uploaded image'}",
 						f"canvas: {image.width} x {image.height}",
-						"single-label classifier backend",
+						"single-label classifier",
 					]
 				)
 			else:
-				st.info("Upload an image or load a random test sample to begin inference.")
+				st.info("Load a test image or upload a sample to start inference.")
 
 		image = st.session_state.get("pending_image")
 		if image is not None and run_btn:
@@ -1188,7 +1191,7 @@ def main() -> None:
 		with right:
 			result = st.session_state.get("last_result")
 			if not result:
-				render_panel("No active run", "Awaiting image", "Run an inference to populate confidence, hazard, and scene evidence.")
+				render_panel("Inference state", "Awaiting input", "Run inference to populate confidence, hazard, and scene evidence.")
 			else:
 				prediction = result["prediction"]
 				decision = result["decision"]
@@ -1197,22 +1200,22 @@ def main() -> None:
 				with r1:
 					render_panel("Predicted class", prediction["class_name"], "single-label top prediction")
 				with r2:
-					render_panel("Confidence", format_pct(prediction["confidence"]), "observed on this upload")
+					render_panel("Confidence", format_pct(prediction["confidence"]), "measured on this input")
 				with r3:
-					render_panel("Latency", f"{result['elapsed_ms']} ms", "end-to-end model inference")
+					render_panel("Latency", f"{result['elapsed_ms']} ms", "single-image forward pass")
 				st.caption(f"Hazard band: {decision.get('hazard_level', 'UNKNOWN')}")
 				render_banner(diagnostics["headline"], diagnostics["detail"], diagnostics["tone"])
-				st.markdown("#### Top-5 Class Probability Structure")
+				st.markdown("#### Top-5 Class Scores")
 				render_probability_rows(prediction["top_predictions"])
 
 		result = st.session_state.get("last_result")
 		if result:
 			scene_analysis = result.get("scene_analysis")
-			st.markdown("### Composite Scene Scan")
+			st.markdown("### Composite Scene Review")
 			if enable_scene_scan and scene_analysis:
 				render_banner(
 					scene_analysis["headline"],
-					f"Tile scan uses a {scene_analysis['grid_size']}x{scene_analysis['grid_size']} grid and aggregates only tile predictions above {scene_analysis['tile_floor']:.2%}. This is triage support, not object detection.",
+					f"Tile scan uses a {scene_analysis['grid_size']}x{scene_analysis['grid_size']} grid and reports tiles above {scene_analysis['tile_floor']:.2%}. This is a review aid, not object detection.",
 					"neutral",
 				)
 				s1, s2 = st.columns([1.05, 0.95], gap="large")
@@ -1241,17 +1244,17 @@ def main() -> None:
 			elif enable_scene_scan:
 				st.info("Run inference to generate composite-scene evidence.")
 			else:
-				st.info("Enable composite scene scan in the sidebar to decompose mixed-object uploads.")
+				st.info("Enable composite scene scan in the sidebar to inspect mixed-object inputs.")
 
-	if workspace == "Policy & Disposal":
+	if workspace == "Policy":
 		render_section_intro(
-			"Decision Layer",
-			"Turn prediction into policy-aware action",
-			"This panel now exposes the actual decision engine outputs: hazard lookup, regulation check, recommendation mode, and the tool trace used to build the final response.",
+			"Decision",
+			"Policy and routing review",
+			"This panel exposes the actual decision output: hazard lookup, compliance signal, recommendation mode, and the trace used to assemble the final response.",
 		)
 		result = st.session_state.get("last_result")
 		if not result:
-			st.info("Run image inference first to generate hazard and disposal guidance.")
+			st.info("Run inference first to generate hazard and routing guidance.")
 		else:
 			decision = result["decision"]
 			diagnostics = result["diagnostics"]
@@ -1263,10 +1266,10 @@ def main() -> None:
 			with p3:
 				render_metric_tile("Human review", "Required" if decision.get("requires_human_review", True) else "Not required", f"threshold: {decision.get('confidence_threshold', confidence_threshold):.2%}", "warning" if decision.get("requires_human_review", True) else "success")
 			with p4:
-				render_metric_tile("Agent mode", decision.get("agent_mode", "n/a"), f"provider: {decision.get('llm_provider', 'none')} | source: {decision.get('explanation_source', 'n/a')}", "neutral")
+				render_metric_tile("Decision mode", decision.get("agent_mode", "n/a"), f"provider: {decision.get('llm_provider', 'none')} | source: {decision.get('explanation_source', 'n/a')}", "neutral")
 			l1, l2 = st.columns([1.05, 0.95], gap="large")
 			with l1:
-				render_panel("Recommended pathway", decision.get("short_recommendation", "n/a"), "final routing decision produced after tool execution")
+				render_panel("Recommended pathway", decision.get("short_recommendation", "n/a"), "routing output after tool execution")
 				st.markdown("#### Material Profile")
 				st.write(decision.get("material_profile", "n/a"))
 				st.markdown("#### Decision Rationale")
@@ -1274,7 +1277,7 @@ def main() -> None:
 				if decision.get("llm_error"):
 					st.warning(f"LLM augmentation failed and the system fell back to deterministic reasoning: {decision['llm_error']}")
 			with l2:
-				render_banner("Operating interpretation", "Tie disposal action to confidence. A confident single-component prediction can flow through policy automatically; ambiguous or composite scenes should stop at triage.", "neutral")
+				render_banner("Operating interpretation", "Tie the routing decision to confidence. Confident single-component inputs can proceed automatically; ambiguous or composite scenes should stop at triage.", "neutral")
 				render_badge_row(
 					[
 						f"compliance: {'ready' if decision.get('compliance_flag', False) else 'escalate'}",
@@ -1293,14 +1296,14 @@ def main() -> None:
 			with st.expander("Raw decision payload"):
 				st.json(decision)
 
-	if workspace == "Benchmark Evidence":
+	if workspace == "Benchmarks":
 		render_section_intro(
-			"Evidence Layer",
-			"Show why the model should be trusted, and where it should not be oversold",
-			"This section surfaces benchmark splits, confusion matrices, learning curves, and interpretability artifacts already present in the repository.",
+			"Benchmarks",
+			"Evaluation records",
+			"This section surfaces benchmark tables, confusion matrices, training curves, and interpretability artifacts already present in the repository.",
 		)
 		if discrepancy_note:
-			render_banner("Benchmark caution", discrepancy_note + " Do not present the archived and script metrics as if they were the same experiment.", "warning")
+			render_banner("Benchmark caution", discrepancy_note + " Do not present the archived and script metrics as if they were one experiment.", "warning")
 		b1, b2 = st.columns([0.95, 1.05], gap="large")
 		with b1:
 			if primary_metrics.empty:
@@ -1319,8 +1322,8 @@ def main() -> None:
 			st.markdown(
 				"""
 				- `dl_results.json` contains the stronger archived benchmark snapshot shown in the confusion matrix image.
-				- `test_results.json` contains the lower script-generated benchmark for the current classification pipeline.
-				- The collage-style upload failure is expected because the dataset is structured as one class per image folder.
+				- `test_results.json` contains the script-generated benchmark for the current classification pipeline when that file is present.
+				- Mixed-scene failure is expected because the dataset is structured as one class per image folder.
 				- A low live confidence is an uncertainty signal, not proof that the model is confidently wrong.
 				"""
 			)
@@ -1336,8 +1339,8 @@ def main() -> None:
 			st.markdown("#### Interpretability Gallery")
 			st.image(str(classification_dir / "graphs" / "gradcam_all_classes.png"), width="stretch")
 
-		st.markdown("#### Paper-Ready Results Draft")
-		if st.button("Generate Results Paragraph with Groq", key="generate_results_paragraph"):
+		st.markdown("#### Results Drafting")
+		if st.button("Draft results paragraph", key="generate_results_paragraph"):
 			try:
 				with st.spinner("Generating results paragraph..."):
 					st.session_state["llm_results_summary"] = call_groq_text(
@@ -1357,11 +1360,11 @@ def main() -> None:
 		if st.session_state.get("llm_results_summary"):
 			st.write(st.session_state["llm_results_summary"])
 
-	if workspace == "Research Analytics":
+	if workspace == "Analytics":
 		render_section_intro(
-			"Extended Research Outputs",
-			"The project is bigger than a classifier, and the dashboard should prove it",
-			"These panels bring the hazard ANN and clustering work into the same interface so the paper demo feels like a complete research platform.",
+			"Analytics",
+			"Supporting analytical outputs",
+			"These panels bring the hazard ANN and clustering outputs into the same interface so the analytical scope of the project is visible alongside the classifier.",
 		)
 		a1, a2, a3, a4 = st.columns(4)
 		with a1:
@@ -1382,8 +1385,8 @@ def main() -> None:
 			st.image(str(clustering_dir / "tsne_by_class.png"), width="stretch")
 			st.image(str(clustering_dir / "tsne_by_hazard.png"), width="stretch")
 
-		st.markdown("#### Discussion Draft")
-		if st.button("Generate Discussion Paragraph with Groq", key="generate_discussion_paragraph"):
+		st.markdown("#### Discussion Drafting")
+		if st.button("Draft discussion paragraph", key="generate_discussion_paragraph"):
 			try:
 				with st.spinner("Generating discussion paragraph..."):
 					st.session_state["llm_discussion_summary"] = call_groq_text(
@@ -1401,11 +1404,11 @@ def main() -> None:
 		if st.session_state.get("llm_discussion_summary"):
 			st.write(st.session_state["llm_discussion_summary"])
 
-	if workspace == "Registry & Data":
+	if workspace == "Registry":
 		render_section_intro(
-			"System Registry",
-			"Show the model estate and the data it stands on",
-			"This view inventories checkpoints, dataset balance, and the hazard taxonomy used by the disposal policy layer.",
+			"Registry",
+			"Model and data inventory",
+			"This view inventories checkpoints, dataset balance, and the hazard taxonomy used by the policy layer.",
 		)
 		registry_rows = []
 		for arch, path in assets["checkpoints"].items():
@@ -1443,7 +1446,7 @@ def main() -> None:
 		st.dataframe(pd.DataFrame(taxonomy_rows), width="stretch", hide_index=True)
 		render_banner(
 			"Deployment scope",
-			"The current vision stack is a single-label component classifier. For publication honesty, position the scene scan as composite-image triage and reserve true detection or multi-label classification as future work.",
+			"The current vision stack is a single-label component classifier. Present the scene scan as composite-image triage and reserve true detection or multi-label classification as future work.",
 			"warning",
 		)
 
@@ -1453,4 +1456,3 @@ if __name__ == "__main__":
 		print("This is a Streamlit app. Launch it with: streamlit run dashboard/app.py")
 		sys.exit(0)
 	main()
-
