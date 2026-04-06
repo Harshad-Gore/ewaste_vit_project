@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 import html
 from pathlib import Path
 import json
@@ -11,8 +12,11 @@ import time
 from textwrap import dedent
 from urllib import request as urllib_request
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from PIL import Image
+import seaborn as sns
 import streamlit as st
 import torch
 import torch.nn as nn
@@ -906,6 +910,550 @@ def format_float(value: float | None, digits: int = 4) -> str:
 	return f"{value:.{digits}f}"
 
 
+def to_float(value: object) -> float | None:
+	try:
+		if value is None:
+			return None
+		return float(value)
+	except (TypeError, ValueError):
+		return None
+
+
+def format_size(num_bytes: int) -> str:
+	if num_bytes < 1024:
+		return f"{num_bytes} B"
+	if num_bytes < 1024**2:
+		return f"{num_bytes / 1024:.1f} KB"
+	if num_bytes < 1024**3:
+		return f"{num_bytes / (1024**2):.2f} MB"
+	return f"{num_bytes / (1024**3):.2f} GB"
+
+
+def classify_artifact(path: Path) -> str:
+	ext = path.suffix.lower()
+	if ext == ".pth":
+		return "checkpoint"
+	if ext == ".json":
+		return "metrics_json"
+	if ext == ".npy":
+		return "array_npy"
+	if ext in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
+		return "visual"
+	if ext == ".txt":
+		return "report_txt"
+	if ext == ".csv":
+		return "table_csv"
+	return "other"
+
+
+def summarize_model_artifact(path: Path, category: str) -> str:
+	try:
+		if category == "metrics_json":
+			payload = load_json(path)
+			if not payload:
+				return "JSON payload unavailable"
+
+			metrics = payload.get("metrics") if isinstance(payload.get("metrics"), Mapping) else None
+			if metrics:
+				acc = to_float(metrics.get("accuracy"))
+				macro_f1 = to_float(metrics.get("macro_f1"))
+				if acc is not None and macro_f1 is not None:
+					return f"accuracy {acc:.2%} | macro-F1 {macro_f1:.4f}"
+
+			acc = to_float(payload.get("test_accuracy"))
+			macro_f1 = to_float(payload.get("macro_f1"))
+			if acc is not None and macro_f1 is not None:
+				return f"test accuracy {acc:.2%} | macro-F1 {macro_f1:.4f}"
+
+			if path.name == "leaderboard.json":
+				ranking = payload.get("ranking")
+				ranked_count = len(ranking) if isinstance(ranking, list) else 0
+				return f"winner {payload.get('winner', 'n/a')} | ranked models {ranked_count}"
+
+			if path.name == "per_class_f1_scores.json":
+				return f"architectures tracked {len(payload)}"
+
+			if path.name == "clustering_metrics.json":
+				silhouette = to_float(payload.get("silhouette_score"))
+				n_clusters = payload.get("n_clusters", "n/a")
+				if silhouette is not None:
+					return f"clusters {n_clusters} | silhouette {silhouette:.4f}"
+				return f"clusters {n_clusters}"
+
+			return f"top-level keys {len(payload)}"
+
+		if category == "array_npy":
+			arr = np.load(path, mmap_mode="r", allow_pickle=False)
+			return f"shape {tuple(arr.shape)} | dtype {arr.dtype}"
+
+		if category == "visual":
+			with Image.open(path) as image:
+				return f"resolution {image.width}x{image.height}"
+
+		if category == "report_txt":
+			with path.open("r", encoding="utf-8", errors="ignore") as fp:
+				line_count = sum(1 for _ in fp)
+			return f"report lines {line_count}"
+
+		if category == "table_csv":
+			head = pd.read_csv(path, nrows=5)
+			return f"columns {len(head.columns)} | sampled rows {len(head)}"
+
+		if category == "checkpoint":
+			return f"binary checkpoint ({path.stem})"
+
+		return "artifact metadata collected"
+	except Exception:
+		return "metadata unavailable"
+
+
+def load_npy_array(path: Path) -> np.ndarray | None:
+	if not path.exists():
+		return None
+	try:
+		return np.load(path, allow_pickle=False)
+	except Exception:
+		return None
+
+
+def build_history_figure(history: Mapping | None, title: str) -> plt.Figure | None:
+	if not isinstance(history, Mapping):
+		return None
+
+	train_loss = history.get("train_loss") if isinstance(history.get("train_loss"), list) else history.get("train")
+	val_loss = history.get("val_loss") if isinstance(history.get("val_loss"), list) else history.get("val")
+	val_acc = history.get("val_acc") if isinstance(history.get("val_acc"), list) else None
+	val_macro_f1 = history.get("val_macro_f1") if isinstance(history.get("val_macro_f1"), list) else None
+
+	if not isinstance(train_loss, list) or not isinstance(val_loss, list) or not train_loss or not val_loss:
+		return None
+
+	n = min(len(train_loss), len(val_loss))
+	if n <= 0:
+		return None
+
+	epochs = np.arange(1, n + 1)
+	fig, ax = plt.subplots(figsize=(8, 4.3))
+	ax.plot(epochs, train_loss[:n], label="train_loss", color="#2563eb", linewidth=2.0)
+	ax.plot(epochs, val_loss[:n], label="val_loss", color="#ea580c", linewidth=2.0)
+	ax.set_xlabel("epoch")
+	ax.set_ylabel("loss")
+	ax.grid(alpha=0.25)
+
+	ax2 = ax.twinx()
+	has_score = False
+	if isinstance(val_acc, list) and val_acc:
+		n_acc = min(n, len(val_acc))
+		ax2.plot(epochs[:n_acc], val_acc[:n_acc], label="val_acc", color="#0ea5e9", linestyle="--", linewidth=1.8)
+		has_score = True
+	if isinstance(val_macro_f1, list) and val_macro_f1:
+		n_f1 = min(n, len(val_macro_f1))
+		ax2.plot(epochs[:n_f1], val_macro_f1[:n_f1], label="val_macro_f1", color="#22c55e", linestyle=":", linewidth=2.0)
+		has_score = True
+
+	if has_score:
+		ax2.set_ylabel("score")
+
+	handles, labels = ax.get_legend_handles_labels()
+	if has_score:
+		h2, l2 = ax2.get_legend_handles_labels()
+		handles.extend(h2)
+		labels.extend(l2)
+	ax.legend(handles, labels, loc="best", fontsize=8)
+	ax.set_title(title, fontweight="bold")
+	fig.tight_layout()
+	return fig
+
+
+def build_confusion_figure(
+	payload: Mapping | None,
+	fallback_class_names: list[str] | None,
+	title: str,
+	normalized: bool = False,
+) -> plt.Figure | None:
+	if not isinstance(payload, Mapping):
+		return None
+
+	key = "confusion_matrix_normalized" if normalized else "confusion_matrix"
+	matrix = payload.get(key)
+
+	if matrix is None and normalized and payload.get("confusion_matrix") is not None:
+		raw = np.array(payload["confusion_matrix"], dtype=float)
+		row_sums = raw.sum(axis=1, keepdims=True)
+		matrix = np.divide(raw, row_sums, out=np.zeros_like(raw, dtype=float), where=row_sums != 0)
+
+	if matrix is None:
+		return None
+
+	array = np.array(matrix, dtype=float)
+	n_classes = array.shape[0]
+	labels = payload.get("class_names") if isinstance(payload.get("class_names"), list) else fallback_class_names
+	if not isinstance(labels, list) or len(labels) != n_classes:
+		labels = [str(i) for i in range(n_classes)]
+
+	fig, ax = plt.subplots(figsize=(10.2, 8.2))
+	annot = n_classes <= 10
+	fmt = ".2f" if normalized else "d"
+	display = array if normalized else np.rint(array).astype(int)
+	sns.heatmap(
+		display,
+		ax=ax,
+		cmap="Blues",
+		annot=annot,
+		fmt=fmt,
+		xticklabels=labels,
+		yticklabels=labels,
+		cbar=True,
+	)
+	acc = None
+	if isinstance(payload.get("metrics"), Mapping):
+		acc = to_float(payload["metrics"].get("accuracy"))
+	if acc is None:
+		acc = to_float(payload.get("test_accuracy"))
+	suffix = f" | acc={acc:.4f}" if acc is not None else ""
+	ax.set_title(f"{title}{suffix}", fontweight="bold")
+	ax.set_xlabel("predicted label")
+	ax.set_ylabel("true label")
+	ax.tick_params(axis="x", rotation=55, labelsize=8)
+	ax.tick_params(axis="y", rotation=0, labelsize=8)
+	fig.tight_layout()
+	return fig
+
+
+def build_class_report_heatmap_figure(payload: Mapping | None, title: str) -> plt.Figure | None:
+	if not isinstance(payload, Mapping):
+		return None
+	report = payload.get("classification_report")
+	if not isinstance(report, Mapping):
+		return None
+
+	rows: list[dict] = []
+	for class_name, metrics in report.items():
+		if not isinstance(metrics, Mapping):
+			continue
+		if str(class_name).lower() in {"accuracy", "macro avg", "weighted avg"}:
+			continue
+		precision = to_float(metrics.get("precision"))
+		recall = to_float(metrics.get("recall"))
+		f1_score = to_float(metrics.get("f1-score"))
+		if precision is None or recall is None or f1_score is None:
+			continue
+		rows.append(
+			{
+				"class": str(class_name),
+				"precision": precision,
+				"recall": recall,
+				"f1": f1_score,
+			}
+		)
+
+	if not rows:
+		return None
+
+	frame = pd.DataFrame(rows).set_index("class")
+	fig, ax = plt.subplots(figsize=(7.8, max(4.5, len(frame) * 0.3)))
+	sns.heatmap(
+		frame,
+		ax=ax,
+		annot=True,
+		fmt=".3f",
+		vmin=0,
+		vmax=1,
+		cmap="YlOrRd",
+	)
+	ax.set_title(title, fontweight="bold")
+	ax.set_xlabel("metric")
+	ax.set_ylabel("class")
+	fig.tight_layout()
+	return fig
+
+
+def build_per_class_f1_heatmap_figure(per_class_payload: Mapping | None) -> plt.Figure | None:
+	if not isinstance(per_class_payload, Mapping) or not per_class_payload:
+		return None
+	frame = pd.DataFrame(per_class_payload)
+	if frame.empty:
+		return None
+	ordered_cols = [arch for arch in SUPPORTED_ARCHES if arch in frame.columns]
+	remaining = [col for col in frame.columns if col not in ordered_cols]
+	frame = frame[ordered_cols + remaining]
+	fig, ax = plt.subplots(figsize=(9.6, max(5.2, len(frame) * 0.35)))
+	sns.heatmap(
+		frame,
+		ax=ax,
+		annot=True,
+		fmt=".2f",
+		vmin=0,
+		vmax=1,
+		cmap="YlGnBu",
+	)
+	ax.set_title("Per-Class F1 Comparison", fontweight="bold")
+	ax.set_xlabel("architecture")
+	ax.set_ylabel("class")
+	fig.tight_layout()
+	return fig
+
+
+def build_ann_overview_figure(ann_payload: Mapping | None) -> plt.Figure | None:
+	if not isinstance(ann_payload, Mapping) or not ann_payload:
+		return None
+
+	fig, axes = plt.subplots(1, 3, figsize=(17.2, 4.8))
+
+	history = ann_payload.get("history") if isinstance(ann_payload.get("history"), Mapping) else {}
+	train_loss = history.get("train") if isinstance(history.get("train"), list) else None
+	val_loss = history.get("val") if isinstance(history.get("val"), list) else None
+	if isinstance(train_loss, list) and isinstance(val_loss, list) and train_loss and val_loss:
+		n = min(len(train_loss), len(val_loss))
+		epochs = np.arange(1, n + 1)
+		axes[0].plot(epochs, train_loss[:n], color="#2563eb", linewidth=2.0, label="train_loss")
+		axes[0].plot(epochs, val_loss[:n], color="#ea580c", linewidth=2.0, label="val_loss")
+		axes[0].set_title("ANN Training Curves", fontweight="bold")
+		axes[0].set_xlabel("epoch")
+		axes[0].set_ylabel("loss")
+		axes[0].grid(alpha=0.25)
+		axes[0].legend(fontsize=8)
+	else:
+		axes[0].text(0.5, 0.5, "history unavailable", ha="center", va="center")
+		axes[0].set_axis_off()
+
+	reg = ann_payload.get("regression_metrics") if isinstance(ann_payload.get("regression_metrics"), Mapping) else {}
+	reg_items = []
+	for key in ("mae", "rmse", "mape", "r2"):
+		metric = to_float(reg.get(key))
+		if metric is not None:
+			reg_items.append((key.upper(), metric))
+	if reg_items:
+		labels = [item[0] for item in reg_items]
+		values = [item[1] for item in reg_items]
+		bars = axes[1].bar(labels, values, color=["#0ea5e9", "#22c55e", "#a855f7", "#f43f5e"][: len(labels)])
+		axes[1].set_title("ANN Regression Metrics", fontweight="bold")
+		axes[1].grid(axis="y", alpha=0.25)
+		for bar, value in zip(bars, values):
+			axes[1].text(bar.get_x() + bar.get_width() / 2, value, f"{value:.3f}", ha="center", va="bottom", fontsize=8)
+	else:
+		axes[1].text(0.5, 0.5, "regression metrics unavailable", ha="center", va="center")
+		axes[1].set_axis_off()
+
+	report = ann_payload.get("classification_report") if isinstance(ann_payload.get("classification_report"), Mapping) else {}
+	report_rows: list[tuple[str, list[float]]] = []
+	for class_name, metrics in report.items():
+		if not isinstance(metrics, Mapping):
+			continue
+		if str(class_name).lower() in {"accuracy", "macro avg", "weighted avg"}:
+			continue
+		row = [
+			to_float(metrics.get("precision")),
+			to_float(metrics.get("recall")),
+			to_float(metrics.get("f1-score")),
+		]
+		if all(value is not None for value in row):
+			report_rows.append((str(class_name), [float(value) for value in row]))
+
+	if report_rows:
+		report_frame = pd.DataFrame(
+			[item[1] for item in report_rows],
+			index=[item[0] for item in report_rows],
+			columns=["precision", "recall", "f1"],
+		)
+		sns.heatmap(report_frame, ax=axes[2], annot=True, fmt=".3f", cmap="YlOrRd", vmin=0, vmax=1)
+		axes[2].set_title("ANN Hazard Class Report", fontweight="bold")
+		axes[2].set_xlabel("metric")
+		axes[2].set_ylabel("class")
+	else:
+		axes[2].text(0.5, 0.5, "classification report unavailable", ha="center", va="center")
+		axes[2].set_axis_off()
+
+	fig.suptitle("ANN Research Insights", fontsize=14, fontweight="bold")
+	fig.tight_layout()
+	return fig
+
+
+def build_clustering_overview_figure(clustering_payload: Mapping | None) -> plt.Figure | None:
+	if not isinstance(clustering_payload, Mapping) or not clustering_payload:
+		return None
+
+	fig, axes = plt.subplots(1, 2, figsize=(13.6, 4.7))
+	cluster_sizes = clustering_payload.get("cluster_sizes") if isinstance(clustering_payload.get("cluster_sizes"), Mapping) else {}
+	parsed_sizes: list[tuple[str, int]] = []
+	for key, value in cluster_sizes.items():
+		v = to_float(value)
+		if v is None:
+			continue
+		parsed_sizes.append((f"cluster_{key}", int(v)))
+
+	if parsed_sizes:
+		bars = axes[0].bar([item[0] for item in parsed_sizes], [item[1] for item in parsed_sizes], color="#0ea5e9")
+		axes[0].set_title("Cluster Size Distribution", fontweight="bold")
+		axes[0].set_ylabel("samples")
+		axes[0].grid(axis="y", alpha=0.25)
+		for bar, value in zip(bars, [item[1] for item in parsed_sizes]):
+			axes[0].text(bar.get_x() + bar.get_width() / 2, value, str(value), ha="center", va="bottom", fontsize=8)
+	else:
+		axes[0].text(0.5, 0.5, "cluster size data unavailable", ha="center", va="center")
+		axes[0].set_axis_off()
+
+	metrics = [
+		("silhouette", to_float(clustering_payload.get("silhouette_score"))),
+		("ARI", to_float(clustering_payload.get("adjusted_rand_index"))),
+		("NMI", to_float(clustering_payload.get("normalized_mutual_info"))),
+		("DBI", to_float(clustering_payload.get("davies_bouldin_index"))),
+	]
+	metrics = [item for item in metrics if item[1] is not None]
+	if metrics:
+		bars = axes[1].bar([item[0] for item in metrics], [item[1] for item in metrics], color=["#22c55e", "#a855f7", "#f59e0b", "#ef4444"][: len(metrics)])
+		axes[1].set_title("Clustering Quality Metrics", fontweight="bold")
+		axes[1].grid(axis="y", alpha=0.25)
+		for bar, value in zip(bars, [item[1] for item in metrics]):
+			axes[1].text(bar.get_x() + bar.get_width() / 2, value, f"{value:.3f}", ha="center", va="bottom", fontsize=8)
+	else:
+		axes[1].text(0.5, 0.5, "quality metrics unavailable", ha="center", va="center")
+		axes[1].set_axis_off()
+
+	fig.suptitle("Clustering Research Insights", fontsize=14, fontweight="bold")
+	fig.tight_layout()
+	return fig
+
+
+def build_cluster_composition_figure(clustering_dir: Path, class_names: list[str] | None = None) -> plt.Figure | None:
+	class_labels = load_npy_array(clustering_dir / "labels.npy")
+	cluster_labels = load_npy_array(clustering_dir / "cluster_labels.npy")
+	if class_labels is None or cluster_labels is None:
+		return None
+	if len(class_labels) != len(cluster_labels):
+		return None
+
+	cluster_ids = cluster_labels.astype(int)
+	n_clusters = int(cluster_ids.max()) + 1 if len(cluster_ids) else 0
+	if n_clusters <= 0:
+		return None
+
+	if np.issubdtype(class_labels.dtype, np.number):
+		class_ids = class_labels.astype(int)
+		unique_classes = np.unique(class_ids)
+		class_map = {class_id: idx for idx, class_id in enumerate(unique_classes)}
+		matrix = np.zeros((len(unique_classes), n_clusters), dtype=int)
+		for class_id, cluster_id in zip(class_ids, cluster_ids):
+			matrix[class_map[class_id], cluster_id] += 1
+		if isinstance(class_names, list) and class_names and int(unique_classes.max()) < len(class_names):
+			y_labels = [class_names[int(class_id)] for class_id in unique_classes]
+		else:
+			y_labels = [str(int(class_id)) for class_id in unique_classes]
+	else:
+		class_values = class_labels.astype(str)
+		unique_classes = np.unique(class_values)
+		class_map = {class_name: idx for idx, class_name in enumerate(unique_classes)}
+		matrix = np.zeros((len(unique_classes), n_clusters), dtype=int)
+		for class_name, cluster_id in zip(class_values, cluster_ids):
+			matrix[class_map[class_name], cluster_id] += 1
+		y_labels = [str(class_name) for class_name in unique_classes]
+
+	x_labels = [f"cluster_{idx}" for idx in range(n_clusters)]
+	fig, ax = plt.subplots(figsize=(8.8, max(4.8, len(y_labels) * 0.35)))
+	sns.heatmap(matrix, ax=ax, annot=True, fmt="d", cmap="Blues", xticklabels=x_labels, yticklabels=y_labels)
+	ax.set_title("Class vs Cluster Composition", fontweight="bold")
+	ax.set_xlabel("cluster")
+	ax.set_ylabel("class")
+	fig.tight_layout()
+	return fig
+
+
+def build_tsne_cluster_figure(clustering_dir: Path, max_points: int = 8000) -> plt.Figure | None:
+	tsne = load_npy_array(clustering_dir / "tsne_result.npy")
+	clusters = load_npy_array(clustering_dir / "tsne_clusters.npy")
+	if tsne is None or clusters is None:
+		return None
+	if tsne.ndim != 2 or tsne.shape[1] < 2 or len(tsne) != len(clusters):
+		return None
+
+	total_points = len(tsne)
+	if total_points > max_points:
+		rng = np.random.default_rng(42)
+		indices = rng.choice(total_points, size=max_points, replace=False)
+	else:
+		indices = np.arange(total_points)
+
+	points = tsne[indices, :2]
+	cluster_ids = clusters[indices].astype(int)
+
+	fig, ax = plt.subplots(figsize=(8.4, 6.6))
+	scatter = ax.scatter(points[:, 0], points[:, 1], c=cluster_ids, cmap="tab10", s=9, alpha=0.72, linewidths=0)
+	colorbar = fig.colorbar(scatter, ax=ax)
+	colorbar.set_label("cluster id")
+	ax.set_title("t-SNE Projection Colored by Cluster", fontweight="bold")
+	ax.set_xlabel("t-SNE 1")
+	ax.set_ylabel("t-SNE 2")
+	ax.grid(alpha=0.16)
+	fig.tight_layout()
+	return fig
+
+
+@st.cache_data(show_spinner=False)
+def load_architecture_payloads(classification_dir_str: str) -> dict:
+	classification_dir = Path(classification_dir_str)
+	payloads: dict[str, dict] = {}
+	for results_path in sorted(classification_dir.glob("*/results.json"), key=lambda p: p.parent.name.lower()):
+		payload = load_json(results_path)
+		if payload:
+			payloads[results_path.parent.name] = payload
+	return payloads
+
+
+@st.cache_data(show_spinner=False)
+def load_models_inventory(models_dir_str: str) -> dict:
+	models_dir = Path(models_dir_str)
+	rows: list[dict] = []
+	for path in sorted(models_dir.rglob("*"), key=lambda p: str(p).lower()):
+		if not path.is_file():
+			continue
+		stat = path.stat()
+		rel_path = path.relative_to(models_dir).as_posix()
+		section = rel_path.split("/")[0] if "/" in rel_path else rel_path
+		category = classify_artifact(path)
+		rows.append(
+			{
+				"section": section,
+				"path": rel_path,
+				"file_name": path.name,
+				"extension": path.suffix.lower() or "(none)",
+				"category": category,
+				"size_bytes": int(stat.st_size),
+				"size": format_size(int(stat.st_size)),
+				"size_mb": float(stat.st_size / (1024**2)),
+				"modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
+				"insight": summarize_model_artifact(path, category),
+			}
+		)
+
+	if not rows:
+		empty = pd.DataFrame(columns=["section", "path", "file_name", "extension", "category", "size", "size_mb", "modified", "insight"])
+		return {
+			"files": empty.to_dict(orient="records"),
+			"by_category": empty.to_dict(orient="records"),
+			"by_section": empty.to_dict(orient="records"),
+		}
+
+	frame = pd.DataFrame(rows).sort_values(["section", "category", "path"]).reset_index(drop=True)
+	by_category = (
+		frame.groupby("category", dropna=False)
+		.agg(file_count=("path", "count"), total_mb=("size_mb", "sum"))
+		.reset_index()
+		.sort_values(["file_count", "total_mb"], ascending=False)
+	)
+	by_section = (
+		frame.groupby("section", dropna=False)
+		.agg(file_count=("path", "count"), total_mb=("size_mb", "sum"))
+		.reset_index()
+		.sort_values(["file_count", "total_mb"], ascending=False)
+	)
+
+	return {
+		"files": frame.to_dict(orient="records"),
+		"by_category": by_category.to_dict(orient="records"),
+		"by_section": by_section.to_dict(orient="records"),
+	}
+
+
 def load_metric_catalog(classification_dir: Path) -> pd.DataFrame:
 	candidates = [
 		classification_dir / "test_results.json",
@@ -983,6 +1531,31 @@ def build_metric_discrepancy_note(metric_catalog: pd.DataFrame, arch: str) -> st
 	)
 
 
+def resolve_benchmark_rows(
+	metric_catalog: pd.DataFrame,
+	arch: str,
+) -> tuple[pd.Series | None, str | None, pd.Series | None, str | None]:
+	if metric_catalog.empty:
+		return None, None, None, None
+
+	subset = metric_catalog.loc[metric_catalog["architecture"] == arch]
+	if subset.empty:
+		return None, None, None, None
+
+	unique_sources = subset["source"].dropna().astype(str).unique().tolist()
+	priority = ["dl_results.json", "test_results.json"]
+	ordered_sources = [source for source in priority if source in unique_sources]
+	ordered_sources.extend(sorted(source for source in unique_sources if source not in ordered_sources))
+
+	primary_source = ordered_sources[0] if ordered_sources else None
+	secondary_source = ordered_sources[1] if len(ordered_sources) > 1 else None
+
+	primary_row = pick_metric_row(metric_catalog, arch, primary_source) if primary_source else None
+	secondary_row = pick_metric_row(metric_catalog, arch, secondary_source) if secondary_source else None
+
+	return primary_row, primary_source, secondary_row, secondary_source
+
+
 def pick_best_arch(
 	checkpoints: dict[str, Path],
 	metrics_df: pd.DataFrame,
@@ -997,6 +1570,9 @@ def pick_best_arch(
 		for arch in metrics_df["architecture"].tolist():
 			if arch in checkpoints:
 				return arch
+
+	if "vit_b16" in checkpoints:
+		return "vit_b16"
 
 	if "resnet50" in checkpoints:
 		return "resnet50"
@@ -1151,11 +1727,19 @@ def load_dataset_profile(data_dir_str: str) -> dict:
 @st.cache_data(show_spinner=False)
 def load_supporting_metrics(project_root_str: str) -> dict:
 	project_root = Path(project_root_str)
+	ann_primary = load_json(project_root / "models" / "ann" / "ann_results_18cls.json") or {}
+	ann_legacy = load_json(project_root / "models" / "ann" / "ann_results.json") or {}
 	return {
-		"ann_results": load_json(project_root / "models" / "ann" / "ann_results.json") or {},
-		"ann_results_18cls": load_json(project_root / "models" / "ann" / "ann_results_18cls.json") or {},
+		"ann_results": ann_primary or ann_legacy,
+		"ann_results_18cls": ann_primary,
 		"clustering_metrics": load_json(project_root / "models" / "clustering" / "clustering_metrics.json") or {},
 		"clustering_results": load_json(project_root / "models" / "clustering" / "clustering_results.json") or {},
+		"competition_leaderboard": load_json(project_root / "models" / "competition" / "leaderboard.json") or {},
+		"competition_all_players": load_json(project_root / "models" / "competition" / "all_players_results.json") or {},
+		"competition_deep": load_json(project_root / "models" / "competition" / "deep_results.json") or {},
+		"competition_traditional": load_json(project_root / "models" / "competition" / "traditional_ml_results.json") or {},
+		"per_class_f1_scores": load_json(project_root / "models" / "classification" / "per_class_f1_scores.json") or {},
+		"benchmark_summary": load_json(project_root / "models" / "classification" / "benchmark_summary.json") or {},
 	}
 
 
@@ -1612,15 +2196,22 @@ def call_groq_text(prompt: str, system_prompt: str, model_name: str | None = Non
 
 def build_results_summary_prompt(
 	best_arch: str,
-	best_archived_row: pd.Series | None,
-	best_script_row: pd.Series | None,
+	primary_row: pd.Series | None,
+	primary_source: str | None,
+	secondary_row: pd.Series | None,
+	secondary_source: str | None,
 	discrepancy_note: str | None,
 ) -> str:
 	parts = [
 		f"Best deployed architecture: {best_arch}.",
-		f"Archived benchmark accuracy: {format_pct(float(best_archived_row['accuracy'])) if best_archived_row is not None else 'n/a'}.",
-		f"Script benchmark accuracy: {format_pct(float(best_script_row['accuracy'])) if best_script_row is not None else 'n/a'}.",
+		f"Primary benchmark ({primary_source or 'n/a'}) accuracy: {format_pct(float(primary_row['accuracy'])) if primary_row is not None else 'n/a'}.",
 	]
+	if secondary_row is not None and secondary_source:
+		parts.append(
+			f"Secondary benchmark ({secondary_source}) accuracy: {format_pct(float(secondary_row['accuracy']))}."
+		)
+	else:
+		parts.append("No secondary benchmark source is currently available for this model.")
 	if discrepancy_note:
 		parts.append(f"Important caveat: {discrepancy_note}")
 	parts.append(
@@ -1633,10 +2224,17 @@ def build_discussion_prompt(
 	ann_results_18cls: dict,
 	clustering_results: dict,
 ) -> str:
+	ann_cls = ann_results_18cls.get("classification_metrics") if isinstance(ann_results_18cls.get("classification_metrics"), Mapping) else {}
+	hazard_acc = to_float(ann_results_18cls.get("hazard_class_accuracy"))
+	if hazard_acc is None:
+		hazard_acc = to_float(ann_cls.get("hazard_class_accuracy"))
+
+	nmi = to_float(clustering_results.get("normalized_mutual_info"))
+	cluster_count = clustering_results.get("n_clusters", "n/a")
 	return (
-		f"Hazard ANN accuracy: {format_pct(float(ann_results_18cls.get('hazard_class_accuracy'))) if ann_results_18cls else 'n/a'}.\n"
-		f"Clustering NMI: {format_float(float(clustering_results.get('normalized_mutual_info'))) if clustering_results else 'n/a'}.\n"
-		f"Cluster count: {clustering_results.get('n_clusters', 'n/a')}.\n"
+		f"Hazard ANN accuracy: {format_pct(hazard_acc)}.\n"
+		f"Clustering NMI: {format_float(nmi)}.\n"
+		f"Cluster count: {cluster_count}.\n"
 		"Write a short discussion paragraph for a research paper that explains what these supporting analyses add beyond the classifier, "
 		"and mention limitations without overselling the results."
 	)
@@ -1656,14 +2254,27 @@ def main() -> None:
 	inject_styles()
 
 	runtime = detect_runtime()
+	models_dir = PROJECT_ROOT / "models"
 	classification_dir = PROJECT_ROOT / "models" / "classification"
 	data_dir = PROJECT_ROOT / "data"
-	ann_dir = PROJECT_ROOT / "models" / "ann"
 	clustering_dir = PROJECT_ROOT / "models" / "clustering"
+
+	try:
+		assets = discover_dashboard_assets(str(classification_dir), str(data_dir))
+	except Exception as exc:
+		st.error(f"failed to load model assets: {exc}")
+		st.stop()
+
+	checkpoints = assets["checkpoints"]
+	available_arches = [arch for arch in SUPPORTED_ARCHES if arch in checkpoints]
+	if not available_arches:
+		available_arches = sorted(checkpoints.keys())
+	default_arch = "vit_b16" if "vit_b16" in available_arches else assets["best_arch"]
 
 	with st.sidebar:
 		st.markdown("### Operations Console")
 		st.caption("Classification, review routing, benchmark records, and data registry for the current research system.")
+		active_arch = st.selectbox("Active model", options=available_arches, index=available_arches.index(default_arch))
 		confidence_threshold = st.slider("Human review threshold", 0.50, 0.95, 0.70, 0.01)
 		enable_scene_scan = st.checkbox("Enable composite scene scan", value=True)
 		scene_grid = st.selectbox("Scene scan grid", options=[2, 3], index=1)
@@ -1675,27 +2286,29 @@ def main() -> None:
 		st.caption(f"VRAM: {f'{runtime.vram_gb:.2f} GB' if runtime.vram_gb is not None else 'n/a'}")
 		st.info("This model is strongest on isolated single-component images. Mixed scenes should be treated as triage support, not detection output.")
 
-	try:
-		assets = discover_dashboard_assets(str(classification_dir), str(data_dir))
-	except Exception as exc:
-		st.error(f"failed to load model assets: {exc}")
-		st.stop()
-
 	class_names = assets["class_names"]
 	best_arch = assets["best_arch"]
-	best_checkpoint = assets["best_checkpoint"]
+	active_checkpoint = checkpoints[active_arch]
 	metric_catalog = pd.DataFrame(assets["metric_catalog"])
 	primary_metrics = pd.DataFrame(assets["primary_metrics"])
+	architecture_payloads = load_architecture_payloads(str(classification_dir))
+	active_arch_payload = architecture_payloads.get(active_arch, {})
+	model_inventory_payload = load_models_inventory(str(models_dir))
+	inventory_frame = pd.DataFrame(model_inventory_payload["files"])
+	inventory_by_category = pd.DataFrame(model_inventory_payload["by_category"])
+	inventory_by_section = pd.DataFrame(model_inventory_payload["by_section"])
 	dataset_profile_payload = load_dataset_profile(str(data_dir))
 	dataset_profile = pd.DataFrame(dataset_profile_payload["rows"])
 	supporting = load_supporting_metrics(str(PROJECT_ROOT))
-	best_archived_row = pick_metric_row(metric_catalog, best_arch, "dl_results.json")
-	best_script_row = pick_metric_row(metric_catalog, best_arch, "test_results.json")
-	discrepancy_note = build_metric_discrepancy_note(metric_catalog, best_arch)
+	primary_benchmark_row, primary_benchmark_source, secondary_benchmark_row, secondary_benchmark_source = resolve_benchmark_rows(
+		metric_catalog,
+		active_arch,
+	)
+	discrepancy_note = build_metric_discrepancy_note(metric_catalog, active_arch)
 
 	model = load_classifier(
-		checkpoint_path=best_checkpoint,
-		arch=best_arch,
+		checkpoint_path=active_checkpoint,
+		arch=active_arch,
 		class_names=tuple(class_names),
 		device_type=runtime.device.type,
 	)
@@ -1704,6 +2317,16 @@ def main() -> None:
 	ann_results_18cls = supporting["ann_results_18cls"]
 	clustering_metrics = supporting["clustering_metrics"]
 	clustering_results = supporting["clustering_results"]
+	competition_leaderboard = supporting["competition_leaderboard"]
+	competition_all_players = supporting["competition_all_players"]
+	per_class_f1_scores = supporting["per_class_f1_scores"]
+
+	ann_cls_metrics = ann_results_18cls.get("classification_metrics") if isinstance(ann_results_18cls.get("classification_metrics"), Mapping) else {}
+	ann_hazard_accuracy = to_float(ann_results_18cls.get("hazard_class_accuracy"))
+	if ann_hazard_accuracy is None:
+		ann_hazard_accuracy = to_float(ann_cls_metrics.get("hazard_class_accuracy"))
+
+	cluster_groups = clustering_metrics.get("n_clusters", clustering_results.get("n_clusters", "n/a"))
 
 	render_hero(
 		title="E-Waste Operations Console",
@@ -1713,20 +2336,21 @@ def main() -> None:
 			"Mixed scenes are surfaced honestly as triage cases rather than being overstated as true detection."
 		),
 		chips=[
-			f"active backbone {best_arch}",
+			f"active backbone {active_arch}",
+			f"benchmark leader {best_arch}",
 			f"human review threshold {confidence_threshold:.0%}",
 			f"scene scan {'enabled' if enable_scene_scan else 'disabled'}",
 			f"llm {'groq online' if os.getenv('GROQ_API_KEY') else 'deterministic mode'}",
 		],
 		side_notes=[
 			(
-				"Archived benchmark",
-				format_pct(float(best_archived_row["accuracy"])) if best_archived_row is not None else "n/a",
-				"Best archived single-label benchmark currently available in the repository.",
+				"Primary benchmark",
+				format_pct(float(primary_benchmark_row["accuracy"])) if primary_benchmark_row is not None else "n/a",
+				f"Active source: {primary_benchmark_source or 'unavailable'}.",
 			),
 			(
 				"Hazard ANN",
-				format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a",
+				format_pct(ann_hazard_accuracy),
 				"Tabular hazard model accuracy for downstream severity support.",
 			),
 			(
@@ -1747,17 +2371,38 @@ def main() -> None:
 
 	top_row = st.columns(3)
 	with top_row[0]:
-		render_metric_tile("Deployed architecture", best_arch, f"checkpoint: {Path(best_checkpoint).name}", "neutral", icon="cpu")
+		render_metric_tile("Active architecture", active_arch, f"checkpoint: {Path(active_checkpoint).name}", "neutral", icon="cpu")
 	with top_row[1]:
-		render_metric_tile("Archived benchmark", format_pct(float(best_archived_row["accuracy"])) if best_archived_row is not None else "n/a", "source: dl_results.json", "success", icon="chart")
+		render_metric_tile(
+			"Primary benchmark",
+			format_pct(float(primary_benchmark_row["accuracy"])) if primary_benchmark_row is not None else "n/a",
+			f"source: {primary_benchmark_source or 'unavailable'}",
+			"success",
+			icon="chart",
+		)
 	with top_row[2]:
-		render_metric_tile("Script benchmark", format_pct(float(best_script_row["accuracy"])) if best_script_row is not None else "n/a", "source: test_results.json", "warning", icon="review")
+		if secondary_benchmark_row is not None and secondary_benchmark_source:
+			render_metric_tile(
+				"Secondary benchmark",
+				format_pct(float(secondary_benchmark_row["accuracy"])),
+				f"source: {secondary_benchmark_source}",
+				"warning",
+				icon="review",
+			)
+		else:
+			render_metric_tile(
+				"Secondary benchmark",
+				format_pct(float(primary_benchmark_row["accuracy"])) if primary_benchmark_row is not None else "n/a",
+				f"single-source mode ({primary_benchmark_source or 'none'})",
+				"neutral",
+				icon="review",
+			)
 
 	second_row = st.columns(2)
 	with second_row[0]:
-		render_metric_tile("Hazard ANN accuracy", format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a", "18-class hazard snapshot", "success", icon="shield")
+		render_metric_tile("Hazard ANN accuracy", format_pct(ann_hazard_accuracy), "18-class hazard snapshot", "success", icon="shield")
 	with second_row[1]:
-		render_metric_tile("Cluster groups", str(clustering_results.get("n_clusters", "n/a")), "unsupervised structure available", "neutral", icon="cluster")
+		render_metric_tile("Cluster groups", str(cluster_groups), "unsupervised structure available", "neutral", icon="cluster")
 
 	if "pending_image" not in st.session_state:
 		st.session_state["pending_image"] = None
@@ -1973,7 +2618,7 @@ def main() -> None:
 		render_section_intro(
 			"Benchmarks",
 			"Evaluation records",
-			"This section surfaces benchmark tables, confusion matrices, training curves, and interpretability artifacts already present in the repository.",
+			"This section surfaces architecture-level evaluation insights from the models folder, with charts generated from metrics payloads instead of raw JSON dumps.",
 			icon="chart",
 		)
 		if discrepancy_note:
@@ -1993,22 +2638,96 @@ def main() -> None:
 				source_frame = metric_catalog.loc[metric_catalog["source"] == selected_source]
 				st.bar_chart(source_frame.set_index("architecture")[["accuracy", "macro_f1"]], width="stretch")
 		with b2:
+			selected_metrics = active_arch_payload.get("metrics") if isinstance(active_arch_payload.get("metrics"), Mapping) else {}
+			selected_acc = to_float(selected_metrics.get("accuracy"))
+			if selected_acc is None:
+				selected_acc = to_float(active_arch_payload.get("test_accuracy"))
+			selected_macro_f1 = to_float(selected_metrics.get("macro_f1"))
+			if selected_macro_f1 is None:
+				selected_macro_f1 = to_float(active_arch_payload.get("macro_f1"))
+			selected_loss = to_float(active_arch_payload.get("test_loss"))
 			render_panel(
-				"Evidence interpretation",
-				"Read the benchmark in scope",
-				"`dl_results.json` is the stronger archived snapshot. `test_results.json` is the current script-generated benchmark when present. Mixed-scene failure is expected because the dataset is single-label by design.",
+				"Selected model",
+				f"{active_arch} | acc {format_pct(selected_acc)} | macro-F1 {format_float(selected_macro_f1, 4)}",
+				f"Test loss {format_float(selected_loss, 4)}. Insights below are sourced from models/classification/{active_arch}/results.json and companion artifacts.",
 				icon="review",
 			)
-			render_badge_row(["Single-label benchmark", "Held-out evaluation", "Interpretability available", "Do not overclaim scene performance"])
-		bench_tabs = st.tabs(["Confusion", "Per-Class F1", "Curves", "Grad-CAM"])
+			render_badge_row(["Single-label benchmark", "Held-out evaluation", "Model-specific diagnostics", "No raw JSON rendering"])
+
+		bench_tabs = st.tabs(["Selected Model", "Per-Class F1", "Saved Graphs", "Competition"])
 		with bench_tabs[0]:
-			st.image(str(classification_dir / "graphs" / "confusion_matrices_18cls.png"), width="stretch")
+			col_left, col_right = st.columns(2, gap="large")
+			with col_left:
+				conf_fig = build_confusion_figure(
+					payload=active_arch_payload,
+					fallback_class_names=class_names,
+					title=f"{active_arch} confusion matrix",
+					normalized=False,
+				)
+				if conf_fig is not None:
+					st.pyplot(conf_fig, use_container_width=True)
+				else:
+					st.info("Confusion matrix payload unavailable for the selected model.")
+			with col_right:
+				history_fig = build_history_figure(active_arch_payload.get("history"), f"{active_arch} training history")
+				if history_fig is not None:
+					st.pyplot(history_fig, use_container_width=True)
+				else:
+					st.info("Training history is unavailable for the selected model.")
+			report_fig = build_class_report_heatmap_figure(active_arch_payload, f"{active_arch} class report")
+			if report_fig is not None:
+				st.pyplot(report_fig, use_container_width=True)
+			else:
+				st.info("Classification report heatmap is unavailable for the selected model.")
 		with bench_tabs[1]:
-			st.image(str(classification_dir / "graphs" / "per_class_f1_comparison.png"), width="stretch")
+			f1_fig = build_per_class_f1_heatmap_figure(per_class_f1_scores)
+			if f1_fig is not None:
+				st.pyplot(f1_fig, use_container_width=True)
+			else:
+				fallback_f1 = classification_dir / "graphs" / "per_class_f1_comparison.png"
+				if fallback_f1.exists():
+					st.image(str(fallback_f1), width="stretch")
+				else:
+					st.info("Per-class F1 payload unavailable.")
 		with bench_tabs[2]:
-			st.image(str(classification_dir / "graphs" / "training_curves_18cls.png"), width="stretch")
+			graph_dir = classification_dir / "graphs"
+			graph_images = [
+				path
+				for path in sorted(graph_dir.glob("*"), key=lambda p: p.name.lower())
+				if path.is_file() and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+			]
+			if not graph_images:
+				st.info("No saved graph images were found in models/classification/graphs.")
+			else:
+				grid = st.columns(2, gap="large")
+				for idx, graph_path in enumerate(graph_images):
+					with grid[idx % 2]:
+						st.image(str(graph_path), caption=graph_path.name, width="stretch")
 		with bench_tabs[3]:
-			st.image(str(classification_dir / "graphs" / "gradcam_all_classes.png"), width="stretch")
+			ranking = competition_leaderboard.get("ranking") if isinstance(competition_leaderboard, Mapping) else None
+			if isinstance(ranking, list) and ranking:
+				comp_frame = pd.DataFrame(ranking)
+				st.dataframe(comp_frame[["rank", "model", "model_type", "accuracy", "macro_f1"]], width="stretch", hide_index=True)
+				st.bar_chart(comp_frame.set_index("model")[["accuracy", "macro_f1"]], width="stretch")
+			elif isinstance(competition_all_players, Mapping) and competition_all_players:
+				rows = []
+				for model_name, payload in competition_all_players.items():
+					if not isinstance(payload, Mapping):
+						continue
+					metrics = payload.get("metrics") if isinstance(payload.get("metrics"), Mapping) else payload
+					acc = to_float(metrics.get("accuracy")) if isinstance(metrics, Mapping) else None
+					macro_f1 = to_float(metrics.get("macro_f1")) if isinstance(metrics, Mapping) else None
+					if acc is None or macro_f1 is None:
+						continue
+					rows.append({"model": model_name, "accuracy": acc, "macro_f1": macro_f1})
+				if rows:
+					frame = pd.DataFrame(rows).sort_values("accuracy", ascending=False)
+					st.dataframe(frame, width="stretch", hide_index=True)
+					st.bar_chart(frame.set_index("model")[["accuracy", "macro_f1"]], width="stretch")
+				else:
+					st.info("Competition payload found but no plottable metrics were detected.")
+			else:
+				st.info("Competition benchmark payload unavailable.")
 
 		st.markdown("#### Results Drafting")
 		if st.button("Draft results paragraph", key="generate_results_paragraph"):
@@ -2016,9 +2735,11 @@ def main() -> None:
 				with st.spinner("Generating results paragraph..."):
 					st.session_state["llm_results_summary"] = call_groq_text(
 						prompt=build_results_summary_prompt(
-							best_arch=best_arch,
-							best_archived_row=best_archived_row,
-							best_script_row=best_script_row,
+							best_arch=active_arch,
+							primary_row=primary_benchmark_row,
+							primary_source=primary_benchmark_source,
+							secondary_row=secondary_benchmark_row,
+							secondary_source=secondary_benchmark_source,
 							discrepancy_note=discrepancy_note,
 						),
 						system_prompt=(
@@ -2035,32 +2756,55 @@ def main() -> None:
 		render_section_intro(
 			"Analytics",
 			"Supporting analytical outputs",
-			"These panels bring the hazard ANN and clustering outputs into the same interface so the analytical scope of the project is visible alongside the classifier.",
+			"These panels derive ANN and clustering insights directly from the current models artifacts with chart-first views.",
 			icon="cluster",
 		)
 		a_top = st.columns(2, gap="large")
 		a_bottom = st.columns(2, gap="large")
 		with a_top[0]:
-			render_metric_tile("Hazard class accuracy", format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a", "18-class ANN hazard snapshot", "success", icon="shield")
+			render_metric_tile("Hazard class accuracy", format_pct(ann_hazard_accuracy), "18-class ANN hazard snapshot", "success", icon="shield")
 		with a_top[1]:
-			render_metric_tile("Regression R2", format_float(float(ann_results.get("regression_metrics", {}).get("r2"))) if ann_results else "n/a", "hazard severity regression", "neutral", icon="chart")
+			regression_r2 = to_float(ann_results.get("regression_metrics", {}).get("r2")) if isinstance(ann_results, Mapping) else None
+			render_metric_tile("Regression R2", format_float(regression_r2), "hazard severity regression", "neutral", icon="chart")
 		with a_bottom[0]:
-			render_metric_tile("Silhouette", format_float(float(clustering_metrics.get("silhouette_score"))) if clustering_metrics else "n/a", "cluster separation score", "warning", icon="cluster")
+			render_metric_tile("Silhouette", format_float(to_float(clustering_metrics.get("silhouette_score")) if isinstance(clustering_metrics, Mapping) else None), "cluster separation score", "warning", icon="cluster")
 		with a_bottom[1]:
-			render_metric_tile("NMI", format_float(float(clustering_results.get("normalized_mutual_info"))) if clustering_results else "n/a", "alignment with known labels", "neutral", icon="spark")
-		analytics_tabs = st.tabs(["Hazard Model", "Clustering"])
+			render_metric_tile("NMI", format_float(to_float(clustering_metrics.get("normalized_mutual_info")) if isinstance(clustering_metrics, Mapping) else None), "alignment with known labels", "neutral", icon="spark")
+
+		analytics_tabs = st.tabs(["Hazard ANN", "Clustering", "Competition"])
 		with analytics_tabs[0]:
-			a_img1, a_img2 = st.columns(2, gap="large")
-			with a_img1:
-				st.image(str(ann_dir / "feature_importance.png"), width="stretch")
-			with a_img2:
-				st.image(str(ann_dir / "hazard_class_confusion.png"), width="stretch")
+			ann_fig = build_ann_overview_figure(ann_results_18cls or ann_results)
+			if ann_fig is not None:
+				st.pyplot(ann_fig, use_container_width=True)
+			else:
+				st.info("ANN insights are unavailable because ann_results_18cls.json could not be parsed.")
 		with analytics_tabs[1]:
-			c_img1, c_img2 = st.columns(2, gap="large")
-			with c_img1:
-				st.image(str(clustering_dir / "tsne_by_class.png"), width="stretch")
-			with c_img2:
-				st.image(str(clustering_dir / "tsne_by_hazard.png"), width="stretch")
+			cluster_overview_fig = build_clustering_overview_figure(clustering_metrics)
+			if cluster_overview_fig is not None:
+				st.pyplot(cluster_overview_fig, use_container_width=True)
+			else:
+				st.info("Clustering metrics payload unavailable.")
+
+			class_names_from_clustering = clustering_results.get("class_names") if isinstance(clustering_results.get("class_names"), list) else class_names
+			composition_fig = build_cluster_composition_figure(clustering_dir, class_names=class_names_from_clustering)
+			if composition_fig is not None:
+				st.pyplot(composition_fig, use_container_width=True)
+			else:
+				st.info("Class-vs-cluster composition could not be generated from labels.npy and cluster_labels.npy.")
+
+			tsne_fig = build_tsne_cluster_figure(clustering_dir)
+			if tsne_fig is not None:
+				st.pyplot(tsne_fig, use_container_width=True)
+			else:
+				st.info("t-SNE scatter could not be generated from tsne_result.npy and tsne_clusters.npy.")
+		with analytics_tabs[2]:
+			ranking = competition_leaderboard.get("ranking") if isinstance(competition_leaderboard, Mapping) else None
+			if isinstance(ranking, list) and ranking:
+				comp_frame = pd.DataFrame(ranking)
+				st.dataframe(comp_frame[["rank", "model", "model_type", "accuracy", "macro_f1"]], width="stretch", hide_index=True)
+				st.bar_chart(comp_frame.set_index("model")[["accuracy", "macro_f1"]], width="stretch")
+			else:
+				st.info("Competition leaderboard is unavailable.")
 
 		st.markdown("#### Discussion Drafting")
 		if st.button("Draft discussion paragraph", key="generate_discussion_paragraph"):
@@ -2069,7 +2813,7 @@ def main() -> None:
 					st.session_state["llm_discussion_summary"] = call_groq_text(
 						prompt=build_discussion_prompt(
 							ann_results_18cls=ann_results_18cls,
-							clustering_results=clustering_results,
+							clustering_results=clustering_metrics or clustering_results,
 						),
 						system_prompt=(
 							"You are helping write the discussion section of a research paper. "
@@ -2085,7 +2829,7 @@ def main() -> None:
 		render_section_intro(
 			"Registry",
 			"Model and data inventory",
-			"This view inventories checkpoints, dataset balance, and the hazard taxonomy used by the policy layer.",
+			"This view inventories checkpoints, dataset balance, taxonomy, and every artifact under models/ with visual summaries.",
 			icon="database",
 		)
 		registry_rows = []
@@ -2094,10 +2838,10 @@ def main() -> None:
 				{
 					"architecture": arch,
 					"checkpoint_path": str(path).replace("\\", "/"),
-					"status": "active" if arch == best_arch else "available",
+					"status": "active" if arch == active_arch else "available",
 				}
 			)
-		registry_tabs = st.tabs(["Checkpoints", "Dataset", "Taxonomy"])
+		registry_tabs = st.tabs(["Checkpoints", "Dataset", "Taxonomy", "Artifacts"])
 		with registry_tabs[0]:
 			st.dataframe(pd.DataFrame(registry_rows), width="stretch", hide_index=True)
 		with registry_tabs[1]:
@@ -2126,6 +2870,53 @@ def main() -> None:
 		with registry_tabs[2]:
 			st.markdown("#### Hazard Taxonomy")
 			st.dataframe(pd.DataFrame(taxonomy_rows), width="stretch", hide_index=True)
+		with registry_tabs[3]:
+			total_files = int(len(inventory_frame)) if not inventory_frame.empty else 0
+			total_size_mb = float(inventory_frame["size_mb"].sum()) if not inventory_frame.empty else 0.0
+			cat_row = st.columns(3, gap="large")
+			with cat_row[0]:
+				render_metric_tile("Model artifacts", str(total_files), "all files under models/", "neutral", icon="database")
+			with cat_row[1]:
+				render_metric_tile("Total artifact size", f"{total_size_mb:.2f} MB", "combined payload footprint", "neutral", icon="stack")
+			with cat_row[2]:
+				visual_count = int((inventory_frame["category"] == "visual").sum()) if not inventory_frame.empty else 0
+				render_metric_tile("Visual artifacts", str(visual_count), "ready for direct dashboard rendering", "success", icon="gallery")
+
+			chart_left, chart_right = st.columns(2, gap="large")
+			with chart_left:
+				if not inventory_by_section.empty:
+					section_chart = inventory_by_section.set_index("section")[["file_count"]]
+					st.bar_chart(section_chart, width="stretch")
+			with chart_right:
+				if not inventory_by_category.empty:
+					category_chart = inventory_by_category.set_index("category")[["file_count"]]
+					st.bar_chart(category_chart, width="stretch")
+
+			if inventory_frame.empty:
+				st.info("No files were discovered under models/.")
+			else:
+				section_options = sorted(inventory_frame["section"].unique().tolist())
+				category_options = sorted(inventory_frame["category"].unique().tolist())
+				selected_sections = st.multiselect("Sections", options=section_options, default=section_options)
+				selected_categories = st.multiselect("Categories", options=category_options, default=category_options)
+
+				filtered = inventory_frame.loc[
+					inventory_frame["section"].isin(selected_sections)
+					& inventory_frame["category"].isin(selected_categories)
+				].copy()
+				filtered = filtered.sort_values(["section", "category", "path"])
+				st.dataframe(
+					filtered[["section", "path", "category", "extension", "size", "modified", "insight"]],
+					width="stretch",
+					hide_index=True,
+				)
+
+				preview_candidates = filtered.loc[filtered["category"] == "visual", "path"].tolist()
+				if preview_candidates:
+					selected_preview = st.selectbox("Visual artifact preview", options=preview_candidates)
+					st.image(str(models_dir / selected_preview), caption=selected_preview, width="stretch")
+				else:
+					st.caption("No visual artifact in the current filter selection.")
 		render_banner(
 			"Deployment scope",
 			"The current vision stack is a single-label component classifier. Present the scene scan as composite-image triage and reserve true detection or multi-label classification as future work.",
