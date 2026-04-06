@@ -16,6 +16,7 @@ import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, WeightedRandomSampler
 from torchvision import datasets, models, transforms
+from torchvision.transforms import InterpolationMode
 from tqdm import tqdm
 
 
@@ -28,10 +29,27 @@ from evaluation.metrics import (  # noqa: E402
     compute_classification_metrics,
     write_metrics_json,
 )
+from evaluation.plots import (  # noqa: E402
+    build_per_class_f1_scores,
+    plot_confusion_matrices,
+    plot_per_class_f1_comparison,
+    plot_training_curves,
+    save_gradcam_gallery,
+    save_per_class_f1_scores,
+    select_gradcam_arch,
+)
+from training.checkpoint_utils import extract_model_state_dict  # noqa: E402
 from training.hardware_utils import (  # noqa: E402
     detect_runtime,
     suggest_batch_size,
     suggest_num_workers,
+)
+from training.image_preprocessing import (  # noqa: E402
+    IMAGENET_MEAN,
+    IMAGENET_STD,
+    LETTERBOX_FILL,
+    SquarePadResize,
+    build_eval_transform,
 )
 
 
@@ -45,20 +63,23 @@ SUPPORTED_ARCHES = [
     "vit_b16",
 ]
 
+DEFAULT_ARCHES = "resnet18,resnet50,efficientnet_b0,efficientnet_b3,convnext_tiny,swin_tiny,vit_b16"
+
 
 @dataclass
 class TrainConfig:
     img_size: int = 224
     batch_size: int = 32
-    num_epochs: int = 30
+    num_epochs: int = 40
     lr: float = 1e-4
     weight_decay: float = 1e-4
     num_workers: int = 4
-    patience: int = 6
-    unfreeze_epoch: int = 6
+    patience: int = 8
+    unfreeze_epoch: int = 5
     seed: int = 42
-    label_smoothing: float = 0.1
+    label_smoothing: float = 0.05
     use_amp: bool = True
+    use_tta: bool = True
 
 
 def set_seed(seed: int) -> None:
@@ -85,34 +106,37 @@ def resolve_data_dir(data_dir: str | None) -> Path:
 
 
 def build_transforms(config: TrainConfig) -> tuple[transforms.Compose, transforms.Compose]:
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
-
     train_transform = transforms.Compose(
         [
-            transforms.Resize((config.img_size + 32, config.img_size + 32)),
-            transforms.RandomCrop(config.img_size),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=15),
-            transforms.ColorJitter(
-                brightness=0.3,
-                contrast=0.3,
-                saturation=0.2,
-                hue=0.05,
+            # Preserve the complete object footprint before any augmentation so
+            # small or elongated components are not cropped away.
+            SquarePadResize(
+                config.img_size,
+                fill=LETTERBOX_FILL,
+                interpolation=InterpolationMode.BICUBIC,
+                scale_range=(0.9, 1.0),
             ),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomVerticalFlip(p=0.05),
+            transforms.RandomRotation(
+                degrees=10,
+                interpolation=InterpolationMode.BILINEAR,
+                fill=LETTERBOX_FILL,
+            ),
+            transforms.ColorJitter(
+                brightness=0.18,
+                contrast=0.18,
+                saturation=0.16,
+                hue=0.03,
+            ),
+            transforms.RandomAutocontrast(p=0.12),
             transforms.ToTensor(),
-            transforms.Normalize(mean, std),
-            transforms.RandomErasing(p=0.1, scale=(0.02, 0.1)),
+            transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+            transforms.RandomErasing(p=0.08, scale=(0.02, 0.08), value="random"),
         ]
     )
 
-    eval_transform = transforms.Compose(
-        [
-            transforms.Resize((config.img_size, config.img_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std),
-        ]
-    )
+    eval_transform = build_eval_transform(config.img_size)
 
     return train_transform, eval_transform
 
@@ -177,15 +201,18 @@ def _replace_resnet_head(model: nn.Module, num_classes: int) -> None:
     )
 
 
-def build_model(arch: str, num_classes: int) -> nn.Module:
+def build_model(arch: str, num_classes: int, pretrained: bool = True) -> nn.Module:
     if arch == "resnet18":
-        model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+        weights = models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
+        model = models.resnet18(weights=weights)
         _replace_resnet_head(model, num_classes)
     elif arch == "resnet50":
-        model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
+        weights = models.ResNet50_Weights.IMAGENET1K_V2 if pretrained else None
+        model = models.resnet50(weights=weights)
         _replace_resnet_head(model, num_classes)
     elif arch == "efficientnet_b0":
-        model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1)
+        weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
+        model = models.efficientnet_b0(weights=weights)
         in_dim = model.classifier[-1].in_features
         model.classifier = nn.Sequential(
             nn.Dropout(0.4),
@@ -195,7 +222,8 @@ def build_model(arch: str, num_classes: int) -> nn.Module:
             nn.Linear(256, num_classes),
         )
     elif arch == "efficientnet_b3":
-        model = models.efficientnet_b3(weights=models.EfficientNet_B3_Weights.IMAGENET1K_V1)
+        weights = models.EfficientNet_B3_Weights.IMAGENET1K_V1 if pretrained else None
+        model = models.efficientnet_b3(weights=weights)
         in_dim = model.classifier[-1].in_features
         model.classifier = nn.Sequential(
             nn.Dropout(0.4),
@@ -205,18 +233,21 @@ def build_model(arch: str, num_classes: int) -> nn.Module:
             nn.Linear(512, num_classes),
         )
     elif arch == "convnext_tiny":
-        model = models.convnext_tiny(weights=models.ConvNeXt_Tiny_Weights.IMAGENET1K_V1)
+        weights = models.ConvNeXt_Tiny_Weights.IMAGENET1K_V1 if pretrained else None
+        model = models.convnext_tiny(weights=weights)
         in_dim = model.classifier[-1].in_features
         model.classifier[-1] = nn.Linear(in_dim, num_classes)
     elif arch == "swin_tiny":
-        model = models.swin_t(weights=models.Swin_T_Weights.IMAGENET1K_V1)
+        weights = models.Swin_T_Weights.IMAGENET1K_V1 if pretrained else None
+        model = models.swin_t(weights=weights)
         in_dim = model.head.in_features
         model.head = nn.Sequential(
             nn.Dropout(0.2),
             nn.Linear(in_dim, num_classes),
         )
     elif arch == "vit_b16":
-        model = models.vit_b_16(weights=models.ViT_B_16_Weights.IMAGENET1K_V1)
+        weights = models.ViT_B_16_Weights.IMAGENET1K_V1 if pretrained else None
+        model = models.vit_b_16(weights=weights)
         in_dim = model.heads.head.in_features
         model.heads.head = nn.Sequential(
             nn.Linear(in_dim, 512),
@@ -307,6 +338,7 @@ def evaluate(
     criterion: nn.Module,
     device: torch.device,
     amp_enabled: bool,
+    tta_enabled: bool = False,
 ) -> tuple[float, np.ndarray, np.ndarray]:
     model.eval()
     loss_sum = 0.0
@@ -320,6 +352,8 @@ def evaluate(
 
         with autocast(enabled=amp_enabled):
             logits = model(images)
+            if tta_enabled:
+                logits = (logits + model(torch.flip(images, dims=[3]))) / 2.0
             loss = criterion(logits, labels)
 
         loss_sum += loss.item() * images.size(0)
@@ -341,7 +375,7 @@ def run_single_arch(
     config: TrainConfig,
     output_dir: Path,
     device: torch.device,
-) -> dict:
+) -> tuple[dict, dict]:
     print(f"\ntraining: {arch}")
     print("-" * 60)
 
@@ -407,6 +441,7 @@ def run_single_arch(
             criterion=criterion,
             device=device,
             amp_enabled=amp_enabled,
+            tta_enabled=config.use_tta,
         )
 
         val_metrics = compute_classification_metrics(val_labels, val_preds)
@@ -447,6 +482,7 @@ def run_single_arch(
         criterion=criterion,
         device=device,
         amp_enabled=amp_enabled,
+        tta_enabled=config.use_tta,
     )
     test_metrics = compute_classification_metrics(test_labels, test_preds)
     artifacts = build_classification_artifacts(test_labels, test_preds, class_names)
@@ -481,7 +517,7 @@ def run_single_arch(
         f"accuracy={test_metrics.accuracy:.4f}, macro_f1={test_metrics.macro_f1:.4f}"
     )
 
-    return {
+    summary = {
         "test_accuracy": round(test_metrics.accuracy, 4),
         "test_loss": round(test_loss, 4),
         "macro_f1": round(test_metrics.macro_f1, 4),
@@ -491,6 +527,7 @@ def run_single_arch(
         "elapsed_seconds": round(elapsed, 2),
         "checkpoint": str(checkpoint_path.relative_to(PROJECT_ROOT)).replace("\\", "/"),
     }
+    return summary, payload
 
 
 def parse_args() -> argparse.Namespace:
@@ -510,17 +547,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--arches",
         type=str,
-        default="resnet50,vit_b16,convnext_tiny,swin_tiny,efficientnet_b3",
+        default=DEFAULT_ARCHES,
         help="comma-separated model list",
     )
-    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--img-size", type=int, default=224)
-    parser.add_argument("--patience", type=int, default=6)
-    parser.add_argument("--unfreeze-epoch", type=int, default=6)
+    parser.add_argument("--patience", type=int, default=8)
+    parser.add_argument("--unfreeze-epoch", type=int, default=5)
     parser.add_argument("--no-amp", action="store_true", help="disable mixed precision")
+    parser.add_argument("--no-tta", action="store_true", help="disable horizontal-flip test-time augmentation")
     return parser.parse_args()
 
 
@@ -553,6 +591,7 @@ def main() -> None:
         patience=args.patience,
         unfreeze_epoch=args.unfreeze_epoch,
         use_amp=not args.no_amp,
+        use_tta=not args.no_tta,
     )
 
     set_seed(config.seed)
@@ -587,9 +626,10 @@ def main() -> None:
     print(f"test_samples: {len(test_loader.dataset)}")
 
     results: dict[str, dict] = {}
+    detailed_results: dict[str, dict] = {}
 
     for arch in arches:
-        results[arch] = run_single_arch(
+        summary, payload = run_single_arch(
             arch=arch,
             train_loader=train_loader,
             val_loader=val_loader,
@@ -600,8 +640,13 @@ def main() -> None:
             output_dir=output_dir,
             device=device,
         )
+        results[arch] = summary
+        detailed_results[arch] = payload
 
-    best_arch, best_info = max(results.items(), key=lambda item: item[1]["test_accuracy"])
+    best_arch, best_info = max(
+        results.items(),
+        key=lambda item: (item[1]["test_accuracy"], item[1]["macro_f1"]),
+    )
 
     summary_payload = {
         "best_arch": best_arch,
@@ -629,6 +674,32 @@ def main() -> None:
         },
     )
     write_metrics_json(output_dir / "benchmark_summary.json", summary_payload)
+
+    graphs_dir = output_dir / "graphs"
+    graphs_dir.mkdir(parents=True, exist_ok=True)
+    plot_training_curves(detailed_results, graphs_dir / "training_curves_18cls.png")
+    plot_training_curves(detailed_results, graphs_dir / "training_curves.png")
+    plot_confusion_matrices(detailed_results, class_names, graphs_dir / "confusion_matrices_18cls.png")
+    per_class_f1 = build_per_class_f1_scores(detailed_results, class_names)
+    save_per_class_f1_scores(per_class_f1, output_dir / "per_class_f1_scores.json")
+    plot_per_class_f1_comparison(per_class_f1, class_names, graphs_dir / "per_class_f1_comparison.png")
+
+    gradcam_arch = select_gradcam_arch(results)
+    if gradcam_arch is not None:
+        checkpoint_path = output_dir / gradcam_arch / f"{gradcam_arch}_best.pth"
+        gradcam_saved = save_gradcam_gallery(
+            arch=gradcam_arch,
+            class_names=class_names,
+            data_dir=data_dir,
+            checkpoint_path=checkpoint_path,
+            build_model_fn=lambda arch_name, n_classes: build_model(arch_name, n_classes, pretrained=False),
+            extract_state_dict_fn=extract_model_state_dict,
+            device=device,
+            img_size=config.img_size,
+            output_path=graphs_dir / "gradcam_all_classes.png",
+        )
+        if not gradcam_saved:
+            print("warning: grad-cam gallery could not be generated in this environment")
 
     print("\nbenchmark complete")
     print(f"best_arch: {best_arch}")

@@ -34,6 +34,7 @@ from training.checkpoint_utils import (  # noqa: E402
     extract_model_state_dict,
     read_best_model_info,
 )
+from training.image_preprocessing import build_eval_transform  # noqa: E402
 
 
 SUPPORTED_ARCHES = [
@@ -103,13 +104,7 @@ def main() -> None:
     best_info = read_best_model_info(cls_dir)
     best_arch = best_info.get("best_arch", "resnet50") if best_info else "resnet50"
 
-    transform = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
+    transform = build_eval_transform(224)
 
     train_ds = datasets.ImageFolder(data_dir / "train", transform=transform)
     val_ds = datasets.ImageFolder(data_dir / "val", transform=transform)

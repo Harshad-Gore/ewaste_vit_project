@@ -1,3 +1,12 @@
 {
-  "best_arch": "resnet50"
+  "best_arch": "convnext_tiny",
+  "results": {
+    "test_accuracy": 0.9811,
+    "test_loss": 0.4332,
+    "macro_f1": 0.9811,
+    "weighted_f1": 0.9811,
+    "macro_precision": 0.9815,
+    "macro_recall": 0.9811
+  },
+  "checkpoint": "models/classification/convnext_tiny/convnext_tiny_best.pth"
 }

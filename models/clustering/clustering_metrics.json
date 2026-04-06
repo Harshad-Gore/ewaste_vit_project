@@ -1,10 +1,14 @@
 {
-  "silhouette_score": 0.1662,
-  "davies_bouldin_index": 4.0827,
-  "calinski_harabasz_index": 151.6768,
-  "adjusted_rand_index": 0.0251,
-  "normalized_mutual_info": 0.034,
-  "homogeneity": 0.028,
-  "completeness": 0.0434,
-  "v_measure": 0.034
+  "n_clusters": 3,
+  "total_samples": 27560,
+  "silhouette_score": 0.0783119723200798,
+  "davies_bouldin_index": 4.934664381379223,
+  "calinski_harabasz_index": 1034.5625742919517,
+  "adjusted_rand_index": 0.0757409779282442,
+  "normalized_mutual_info": 0.230084274431711,
+  "cluster_sizes": {
+    "0": 5801,
+    "1": 15968,
+    "2": 5791
+  }
 }

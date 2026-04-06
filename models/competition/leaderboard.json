@@ -1,0 +1,111 @@
+{
+  "winner": "logistic_regression",
+  "winner_metrics": {
+    "accuracy": 0.9822,
+    "macro_f1": 0.9823,
+    "weighted_f1": 0.9823,
+    "macro_precision": 0.9826,
+    "macro_recall": 0.9822
+  },
+  "ranking": [
+    {
+      "rank": 1,
+      "model": "logistic_regression",
+      "model_type": "traditional_ml",
+      "accuracy": 0.9822,
+      "macro_f1": 0.9823
+    },
+    {
+      "rank": 2,
+      "model": "convnext_tiny",
+      "model_type": "deep_learning",
+      "accuracy": 0.9822,
+      "macro_f1": 0.9822
+    },
+    {
+      "rank": 3,
+      "model": "svm_rbf",
+      "model_type": "traditional_ml",
+      "accuracy": 0.9817,
+      "macro_f1": 0.9818
+    },
+    {
+      "rank": 4,
+      "model": "vit_b16",
+      "model_type": "deep_learning",
+      "accuracy": 0.9817,
+      "macro_f1": 0.9816
+    },
+    {
+      "rank": 5,
+      "model": "hierarchical_svm",
+      "model_type": "hierarchical",
+      "accuracy": 0.9806,
+      "macro_f1": 0.9807
+    },
+    {
+      "rank": 6,
+      "model": "knn_k7",
+      "model_type": "traditional_ml",
+      "accuracy": 0.9794,
+      "macro_f1": 0.9795
+    },
+    {
+      "rank": 7,
+      "model": "resnet50",
+      "model_type": "deep_learning",
+      "accuracy": 0.9778,
+      "macro_f1": 0.9778
+    },
+    {
+      "rank": 8,
+      "model": "swin_tiny",
+      "model_type": "deep_learning",
+      "accuracy": 0.9772,
+      "macro_f1": 0.9773
+    },
+    {
+      "rank": 9,
+      "model": "resnet18",
+      "model_type": "deep_learning",
+      "accuracy": 0.9628,
+      "macro_f1": 0.9628
+    },
+    {
+      "rank": 10,
+      "model": "efficientnet_b3",
+      "model_type": "deep_learning",
+      "accuracy": 0.9417,
+      "macro_f1": 0.9414
+    },
+    {
+      "rank": 11,
+      "model": "efficientnet_b0",
+      "model_type": "deep_learning",
+      "accuracy": 0.9083,
+      "macro_f1": 0.9068
+    }
+  ],
+  "embedding_arch_for_traditional_ml": "convnext_tiny",
+  "class_names": [
+    "Air-Conditioner",
+    "Battery",
+    "Keyboard",
+    "Laptop",
+    "Microchip-IC",
+    "Microwave",
+    "Mobile",
+    "Mouse",
+    "PCB",
+    "Passive-Component",
+    "Printer",
+    "Refrigerator",
+    "Resistor",
+    "Television",
+    "Washing Machine",
+    "heat-sink",
+    "light bulbs",
+    "transistor"
+  ],
+  "timestamp": "2026-04-06 04:01:02"
+}

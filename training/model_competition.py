@@ -6,11 +6,11 @@ from pathlib import Path
 import json
 import sys
 import time
+from contextlib import nullcontext
 
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.cuda.amp import autocast
 from torch.utils.data import ConcatDataset, DataLoader
 from torchvision import datasets, models, transforms
 from tqdm import tqdm
@@ -40,6 +40,7 @@ from training.checkpoint_utils import (  # noqa: E402
     read_best_model_info,
 )
 from training.hardware_utils import detect_runtime  # noqa: E402
+from training.image_preprocessing import build_eval_transform  # noqa: E402
 
 
 SUPPORTED_ARCHES = [
@@ -75,6 +76,13 @@ HAZARD_MAP = {
 }
 
 
+def mixed_precision_context(device: torch.device):
+    """Use new torch.amp.autocast on CUDA and no-op elsewhere."""
+    if device.type == "cuda":
+        return torch.amp.autocast(device_type="cuda", enabled=True)
+    return nullcontext()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="deep + traditional ml competition runner")
     parser.add_argument("--data-dir", type=str, default=str(PROJECT_ROOT / "data"))
@@ -101,13 +109,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_eval_datasets(data_dir: Path):
-    transform = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
+    transform = build_eval_transform(224)
 
     train_ds = datasets.ImageFolder(data_dir / "train", transform=transform)
     val_ds = datasets.ImageFolder(data_dir / "val", transform=transform)
@@ -200,7 +202,7 @@ def evaluate_deep_model(
 
     for images, labels in tqdm(loader, desc="deep-eval", leave=False):
         images = images.to(device, non_blocking=True)
-        with autocast(enabled=device.type == "cuda"):
+        with mixed_precision_context(device):
             logits = model(images)
         preds.append(logits.argmax(dim=1).cpu().numpy())
         labels_all.append(labels.numpy())
@@ -259,7 +261,7 @@ def extract_embeddings(
 
     for images, _ in tqdm(loader, desc=f"embed-{arch}", leave=False):
         images = images.to(device, non_blocking=True)
-        with autocast(enabled=device.type == "cuda"):
+        with mixed_precision_context(device):
             feats = extractor(images)
         embeddings.append(feats.detach().cpu().float().numpy())
 
@@ -439,26 +441,29 @@ def main() -> None:
     X_trainval = scaler.fit_transform(pca.fit_transform(X_trainval_raw))
     X_test = scaler.transform(pca.transform(X_test_raw))
 
-    traditional_models = {
-        "knn_k7": KNeighborsClassifier(n_neighbors=7, metric="cosine", n_jobs=-1),
-        "svm_rbf": SVC(kernel="rbf", C=10.0, gamma="scale", probability=True, random_state=42),
-        "svm_linear": SVC(kernel="linear", C=1.0, probability=True, random_state=42),
-        "random_forest": RandomForestClassifier(n_estimators=350, random_state=42, n_jobs=-1),
-        "logistic_regression": LogisticRegression(
+    try:
+        logistic_regression = LogisticRegression(
             max_iter=3000,
             C=1.0,
             solver="lbfgs",
             multi_class="multinomial",
             n_jobs=-1,
             random_state=42,
-        ),
-        "naive_bayes": GaussianNB(),
-        "gradient_boosting": GradientBoostingClassifier(
-            n_estimators=250,
-            learning_rate=0.08,
-            max_depth=3,
+        )
+    except TypeError:
+        # Newer sklearn removed multi_class; multinomial is auto-selected when supported.
+        logistic_regression = LogisticRegression(
+            max_iter=3000,
+            C=1.0,
+            solver="lbfgs",
+            n_jobs=-1,
             random_state=42,
-        ),
+        )
+
+    traditional_models = {
+        "knn_k7": KNeighborsClassifier(n_neighbors=7, metric="cosine", n_jobs=-1),
+        "svm_rbf": SVC(kernel="rbf", C=10.0, gamma="scale", probability=True, random_state=42),
+        "logistic_regression": logistic_regression,
     }
 
     traditional_results = {}

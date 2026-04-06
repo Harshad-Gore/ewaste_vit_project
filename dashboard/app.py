@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import html
 from pathlib import Path
 import json
 import os
 import random
 import sys
 import time
+from textwrap import dedent
 from urllib import request as urllib_request
 
 import pandas as pd
@@ -29,6 +31,7 @@ from training.checkpoint_utils import (  # noqa: E402
 	read_best_model_info,
 )
 from training.hardware_utils import detect_runtime  # noqa: E402
+from training.image_preprocessing import build_eval_transform  # noqa: E402
 
 
 SUPPORTED_ARCHES = [
@@ -43,13 +46,7 @@ SUPPORTED_ARCHES = [
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
-EVAL_TRANSFORM = transforms.Compose(
-	[
-		transforms.Resize((224, 224)),
-		transforms.ToTensor(),
-		transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-	]
-)
+EVAL_TRANSFORM = build_eval_transform(224)
 
 HAZARD_COLOR = {
 	"HIGH": "#f97316",
@@ -73,309 +70,812 @@ WORKSPACES = [
 	"Registry",
 ]
 
+ICON_SVGS = {
+	"spark": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" />
+	</svg>
+	""",
+	"cpu": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<rect x="7" y="7" width="10" height="10" rx="2" />
+		<path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3M10 10h4v4h-4z" />
+	</svg>
+	""",
+	"chart": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M4 19h16M7 15l3-3 3 2 5-6" />
+		<path d="M7 19v-4M10 19v-7M13 19v-5M18 19v-10" />
+	</svg>
+	""",
+	"shield": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M12 3l7 3v5c0 4.5-2.7 7.9-7 10-4.3-2.1-7-5.5-7-10V6l7-3z" />
+		<path d="M9.5 12.5l1.8 1.8 3.2-3.7" />
+	</svg>
+	""",
+	"gauge": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M5 16a7 7 0 1 1 14 0" />
+		<path d="M12 12l4-3" />
+		<circle cx="12" cy="12" r="1.4" />
+	</svg>
+	""",
+	"bolt": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M13 2L5 14h5l-1 8 8-12h-5l1-8z" />
+	</svg>
+	""",
+	"gallery": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<rect x="3" y="5" width="18" height="14" rx="2" />
+		<path d="M8 11l2.2 2.2 3.1-3.1 4.7 4.9" />
+		<circle cx="9" cy="9" r="1.2" />
+	</svg>
+	""",
+	"review": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<circle cx="11" cy="11" r="6" />
+		<path d="M16 16l4.5 4.5" />
+	</svg>
+	""",
+	"route": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<circle cx="6" cy="18" r="2" />
+		<circle cx="18" cy="6" r="2" />
+		<path d="M8 18h3a5 5 0 0 0 5-5V8" />
+		<path d="M13 8h3V5" />
+	</svg>
+	""",
+	"database": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<ellipse cx="12" cy="6" rx="7" ry="3" />
+		<path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+		<path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+	</svg>
+	""",
+	"cluster": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<circle cx="6" cy="8" r="2" />
+		<circle cx="18" cy="7" r="2" />
+		<circle cx="12" cy="17" r="2" />
+		<path d="M7.7 9.1l2.8 5.1M16.3 8.4l-2.8 5.1M8 8h8" />
+	</svg>
+	""",
+	"warning": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M12 4l9 16H3L12 4z" />
+		<path d="M12 9v4M12 17h.01" />
+	</svg>
+	""",
+	"stack": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M12 4l8 4-8 4-8-4 8-4z" />
+		<path d="M4 12l8 4 8-4" />
+		<path d="M4 16l8 4 8-4" />
+	</svg>
+	""",
+}
+
+
+def escape_html(value: object) -> str:
+	return html.escape(str(value), quote=True)
+
+
+def format_html_copy(value: object) -> str:
+	return escape_html(value).replace("\n", "<br/>")
+
+
+def render_html(markup: str) -> None:
+	st.markdown(dedent(markup).strip(), unsafe_allow_html=True)
+
+
+def guess_icon_name(label: str) -> str:
+	text = label.lower()
+	if any(token in text for token in {"arch", "model", "checkpoint", "runtime", "deployment"}):
+		return "cpu"
+	if any(token in text for token in {"benchmark", "f1", "metric", "score"}):
+		return "chart"
+	if any(token in text for token in {"hazard", "compliance", "risk"}):
+		return "shield"
+	if any(token in text for token in {"confidence", "threshold"}):
+		return "gauge"
+	if any(token in text for token in {"latency", "runtime", "speed"}):
+		return "bolt"
+	if any(token in text for token in {"route", "pathway", "policy", "decision"}):
+		return "route"
+	if any(token in text for token in {"registry", "dataset", "taxonomy", "data"}):
+		return "database"
+	if any(token in text for token in {"cluster", "analytics"}):
+		return "cluster"
+	if any(token in text for token in {"image", "scene", "gallery", "intake"}):
+		return "gallery"
+	if any(token in text for token in {"review", "triage", "trace"}):
+		return "review"
+	if any(token in text for token in {"warning", "caution"}):
+		return "warning"
+	return "spark"
+
 
 def inject_styles() -> None:
 	st.markdown(
 		"""
 		<style>
-		@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+		@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
 
 		:root {
-			--bg: #09111f;
-			--panel: rgba(10, 20, 36, 0.82);
-			--line: rgba(148, 163, 184, 0.18);
-			--line-strong: rgba(148, 163, 184, 0.28);
-			--text: #e2e8f0;
-			--muted: #94a3b8;
-			--accent: #2dd4bf;
-			--accent-2: #38bdf8;
+			--bg-0: #071018;
+			--bg-1: #0a1724;
+			--bg-2: #112132;
+			--surface: rgba(11, 21, 33, 0.88);
+			--surface-strong: rgba(13, 24, 37, 0.97);
+			--surface-soft: rgba(20, 35, 52, 0.72);
+			--line: rgba(146, 165, 185, 0.17);
+			--line-strong: rgba(146, 165, 185, 0.28);
+			--text: #f2f7ff;
+			--muted: #92a4b8;
+			--accent: #63d0d9;
+			--accent-strong: #9ce7ed;
+			--signal: #f38b59;
+			--success: #3cc58d;
+			--warning: #f4b168;
+			--danger: #ff6f61;
+			--shadow: 0 28px 80px rgba(3, 10, 18, 0.36);
+			--radius-xl: 28px;
+			--radius-lg: 22px;
+			--radius-md: 18px;
 		}
 
 		html, body, [data-testid="stAppViewContainer"] {
-			font-family: 'IBM Plex Sans', sans-serif;
+			font-family: 'Manrope', sans-serif;
 			color: var(--text);
 			background:
-				radial-gradient(1200px 520px at -10% -10%, rgba(45, 212, 191, 0.16), transparent 48%),
-				radial-gradient(980px 420px at 112% 0%, rgba(56, 189, 248, 0.16), transparent 44%),
-				linear-gradient(180deg, #08111d 0%, #0a1322 55%, #09101d 100%);
+				radial-gradient(circle at 0% 0%, rgba(99, 208, 217, 0.18), transparent 28%),
+				radial-gradient(circle at 100% 0%, rgba(243, 139, 89, 0.14), transparent 26%),
+				repeating-linear-gradient(
+					90deg,
+					rgba(255, 255, 255, 0.025) 0,
+					rgba(255, 255, 255, 0.025) 1px,
+					transparent 1px,
+					transparent 84px
+				),
+				repeating-linear-gradient(
+					0deg,
+					rgba(255, 255, 255, 0.02) 0,
+					rgba(255, 255, 255, 0.02) 1px,
+					transparent 1px,
+					transparent 84px
+				),
+				linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 46%, #08131f 100%);
+		}
+
+		[data-testid="stAppViewContainer"]::before {
+			content: "";
+			position: fixed;
+			inset: 0;
+			pointer-events: none;
+			background:
+				radial-gradient(540px 240px at 18% 14%, rgba(99, 208, 217, 0.11), transparent 62%),
+				radial-gradient(760px 320px at 82% 9%, rgba(243, 139, 89, 0.07), transparent 58%);
+			z-index: 0;
 		}
 
 		[data-testid="stHeader"] {
 			background: transparent;
 		}
 
-		h1, h2, h3 {
-			font-family: 'Space Grotesk', sans-serif;
-			letter-spacing: 0.01em;
-			color: #f8fafc;
-		}
-
-		.hero {
+		[data-testid="stAppViewContainer"] > .main,
+		[data-testid="stSidebar"] {
 			position: relative;
-			overflow: hidden;
-			border: 1px solid var(--line);
-			border-radius: 24px;
-			padding: 26px 28px;
-			background: linear-gradient(135deg, rgba(8, 17, 31, 0.96) 0%, rgba(15, 23, 42, 0.94) 56%, rgba(10, 18, 32, 0.98) 100%);
-			box-shadow: 0 24px 80px rgba(2, 8, 23, 0.38);
-			margin-bottom: 12px;
+			z-index: 1;
 		}
 
-		.hero::after {
-			content: "";
-			position: absolute;
-			inset: auto -10% -38% 38%;
-			height: 240px;
-			background: radial-gradient(circle, rgba(45, 212, 191, 0.16) 0%, transparent 62%);
-			pointer-events: none;
+		[data-testid="block-container"] {
+			max-width: 1320px;
+			padding-top: 1.5rem;
+			padding-bottom: 2rem;
 		}
 
-		.hero-kicker {
-			text-transform: uppercase;
-			font-size: 0.74rem;
-			letter-spacing: 0.16em;
-			font-weight: 700;
-			color: var(--accent);
-			margin-bottom: 10px;
+		h1, h2, h3, h4 {
+			font-family: 'Sora', sans-serif;
+			letter-spacing: -0.03em;
+			color: #f8fbff;
 		}
 
-		.hero h1 {
-			margin: 0;
-			font-size: 2.28rem;
-			line-height: 1.05;
-		}
-
-		.hero p {
-			margin-top: 12px;
-			margin-bottom: 0;
-			color: #cbd5e1;
-			font-size: 1rem;
-			line-height: 1.7;
-			max-width: 880px;
-		}
-
-		.glass-card {
-			border: 1px solid var(--line);
-			border-radius: 18px;
-			padding: 16px;
-			background: linear-gradient(180deg, rgba(15, 23, 42, 0.84) 0%, rgba(8, 17, 31, 0.96) 100%);
-			box-shadow: 0 16px 48px rgba(2, 8, 23, 0.24);
-			min-height: 132px;
-		}
-
-		.kpi-value {
-			font-size: 1.72rem;
-			font-weight: 800;
-			color: #f8fafc;
-		}
-
-		.kpi-label {
-			color: var(--muted);
-			font-size: 0.74rem;
-			text-transform: uppercase;
-			letter-spacing: 0.14em;
-			font-weight: 700;
-		}
-
-		.kpi-detail {
-			margin-top: 10px;
-			font-size: 0.88rem;
-			color: #cbd5e1;
-			line-height: 1.45;
-		}
-
-		.hazard-pill {
-			display: inline-block;
-			font-weight: 800;
-			color: #f8fafc;
-			border-radius: 999px;
-			padding: 0.34rem 0.9rem;
-			font-size: 0.78rem;
-			letter-spacing: 0.08em;
-			text-transform: uppercase;
+		p, li, [data-testid="stMarkdownContainer"] {
+			color: var(--text);
 		}
 
 		[data-testid="stSidebar"] {
 			border-right: 1px solid var(--line);
-			background: linear-gradient(180deg, rgba(8, 17, 31, 0.98) 0%, rgba(10, 20, 36, 0.98) 100%);
+			background:
+				linear-gradient(180deg, rgba(7, 16, 24, 0.98) 0%, rgba(10, 23, 36, 0.98) 100%);
 		}
 
-		.panel-card, .signal-banner, .prob-card, .sidebar-card {
-			border: 1px solid var(--line);
-			border-radius: 20px;
-			background: linear-gradient(180deg, rgba(12, 22, 38, 0.86) 0%, rgba(8, 17, 31, 0.94) 100%);
-			box-shadow: 0 16px 48px rgba(2, 8, 23, 0.2);
+		[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+			padding-top: 0.5rem;
 		}
 
-		.panel-card, .prob-card {
-			padding: 18px;
-		}
-
-		.sidebar-card {
-			padding: 14px;
-			margin-bottom: 12px;
-		}
-
-		.panel-label, .sidebar-label {
-			font-size: 0.76rem;
-			text-transform: uppercase;
-			letter-spacing: 0.14em;
-			color: var(--muted);
+		.stButton > button,
+		button[kind="secondary"],
+		button[kind="primary"] {
+			border-radius: 16px;
+			min-height: 46px;
+			padding: 0.75rem 1rem;
+			border: 1px solid var(--line-strong);
+			background: linear-gradient(180deg, rgba(17, 31, 46, 0.92) 0%, rgba(10, 19, 30, 0.96) 100%);
+			color: #eef7ff;
 			font-weight: 700;
-			margin-bottom: 6px;
+			transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+			box-shadow: 0 10px 24px rgba(3, 10, 18, 0.24);
 		}
 
-		.panel-value {
-			font-size: 1.26rem;
-			font-weight: 700;
-			color: #f8fafc;
-			margin-bottom: 8px;
+		button[kind="primary"] {
+			background:
+				linear-gradient(135deg, rgba(99, 208, 217, 0.96) 0%, rgba(109, 227, 198, 0.94) 100%);
+			color: #071018;
+			border-color: rgba(161, 238, 226, 0.45);
+			box-shadow: 0 18px 36px rgba(99, 208, 217, 0.18);
 		}
 
-		.panel-copy, .sidebar-copy, .section-copy {
-			font-size: 0.94rem;
-			line-height: 1.65;
-			color: #cbd5e1;
+		.stButton > button:hover,
+		button[kind="secondary"]:hover,
+		button[kind="primary"]:hover {
+			transform: translateY(-1px);
+			border-color: rgba(156, 231, 237, 0.48);
+			box-shadow: 0 18px 36px rgba(3, 10, 18, 0.3);
 		}
 
-		.signal-banner {
-			padding: 16px 18px;
-			margin: 4px 0 14px;
+		[data-testid="stFileUploaderDropzone"] {
+			border-radius: var(--radius-lg);
+			border: 1px dashed rgba(156, 231, 237, 0.32);
+			background:
+				linear-gradient(180deg, rgba(13, 24, 37, 0.95) 0%, rgba(9, 17, 27, 0.98) 100%);
+			padding: 1rem 1.05rem;
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 		}
 
-		.signal-banner.tone-warning {
-			background: linear-gradient(180deg, rgba(120, 53, 15, 0.22) 0%, rgba(8, 17, 31, 0.92) 100%);
+		[data-testid="stFileUploaderDropzone"]:hover {
+			border-color: rgba(156, 231, 237, 0.5);
+			background:
+				linear-gradient(180deg, rgba(16, 28, 42, 0.98) 0%, rgba(10, 19, 30, 1) 100%);
 		}
 
-		.signal-banner.tone-success {
-			background: linear-gradient(180deg, rgba(6, 95, 70, 0.22) 0%, rgba(8, 17, 31, 0.92) 100%);
+		div[data-baseweb="select"] > div,
+		[data-baseweb="base-input"] > div,
+		[data-testid="stTextInput"] input {
+			background: rgba(14, 25, 38, 0.9);
+			border-radius: 16px;
+			border-color: var(--line-strong);
+			color: #eef7ff;
 		}
 
-		.signal-banner.tone-danger {
-			background: linear-gradient(180deg, rgba(127, 29, 29, 0.26) 0%, rgba(8, 17, 31, 0.92) 100%);
+		div[data-baseweb="select"] svg {
+			color: var(--accent-strong);
 		}
 
-		.signal-banner.tone-neutral {
-			background: linear-gradient(180deg, rgba(14, 116, 144, 0.18) 0%, rgba(8, 17, 31, 0.92) 100%);
+		[data-baseweb="slider"] [role="slider"] {
+			background: var(--accent);
+			box-shadow: 0 0 0 6px rgba(99, 208, 217, 0.15);
 		}
 
-		.glass-card.tone-success {
-			box-shadow: inset 0 1px 0 rgba(52, 211, 153, 0.22), 0 16px 48px rgba(2, 8, 23, 0.24);
+		[data-baseweb="slider"] > div > div > div {
+			background: linear-gradient(90deg, rgba(99, 208, 217, 0.95), rgba(243, 139, 89, 0.82));
 		}
 
-		.glass-card.tone-warning {
-			box-shadow: inset 0 1px 0 rgba(245, 158, 11, 0.22), 0 16px 48px rgba(2, 8, 23, 0.24);
-		}
-
-		.glass-card.tone-danger {
-			box-shadow: inset 0 1px 0 rgba(251, 113, 133, 0.24), 0 16px 48px rgba(2, 8, 23, 0.24);
-		}
-
-		.glass-card.tone-neutral {
-			box-shadow: inset 0 1px 0 rgba(56, 189, 248, 0.18), 0 16px 48px rgba(2, 8, 23, 0.24);
-		}
-
-		.signal-title, .section-headline {
-			color: #f8fafc;
-			font-weight: 700;
-		}
-
-		.signal-title {
-			font-size: 1rem;
-			margin-bottom: 5px;
-		}
-
-		.signal-copy {
-			color: #cbd5e1;
-			font-size: 0.94rem;
-			line-height: 1.6;
-			margin: 0;
-		}
-
-		.prob-row + .prob-row {
-			margin-top: 14px;
-		}
-
-		.prob-meta {
-			display: flex;
-			justify-content: space-between;
-			gap: 1rem;
-			font-size: 0.92rem;
-			margin-bottom: 6px;
-			color: #e2e8f0;
-		}
-
-		.prob-track {
-			height: 11px;
+		[data-testid="stProgressBar"] > div,
+		[data-testid="stProgress"] > div {
+			background: rgba(146, 165, 185, 0.12);
 			border-radius: 999px;
-			background: rgba(148, 163, 184, 0.14);
 			overflow: hidden;
 		}
 
-		.prob-fill {
-			height: 100%;
+		[data-testid="stProgressBar"] > div > div,
+		[data-testid="stProgress"] > div > div {
+			background: linear-gradient(90deg, rgba(99, 208, 217, 1) 0%, rgba(103, 225, 184, 0.96) 50%, rgba(243, 139, 89, 0.92) 100%);
 			border-radius: 999px;
-			background: linear-gradient(90deg, #2dd4bf 0%, #38bdf8 52%, #22c55e 100%);
+		}
+
+		[data-testid="stImage"] img,
+		[data-testid="stDataFrame"],
+		[data-testid="stTable"] {
+			border-radius: var(--radius-lg);
+			overflow: hidden;
+			border: 1px solid var(--line);
+			box-shadow: var(--shadow);
+		}
+
+		div[data-baseweb="tab-list"] {
+			flex-wrap: wrap;
+			gap: 0.5rem;
+			margin-bottom: 0.8rem;
+		}
+
+		button[data-baseweb="tab"] {
+			border-radius: 999px;
+			padding: 0.55rem 1rem;
+			background: rgba(15, 28, 41, 0.76);
+			border: 1px solid var(--line);
+			color: #c9d6e5;
+			height: auto;
+			min-height: 2.6rem;
+			font-weight: 700;
+		}
+
+		button[data-baseweb="tab"][aria-selected="true"] {
+			background: linear-gradient(135deg, rgba(99, 208, 217, 0.18) 0%, rgba(243, 139, 89, 0.14) 100%);
+			color: #f8fbff;
+			border-color: rgba(156, 231, 237, 0.36);
+			box-shadow: 0 10px 26px rgba(3, 10, 18, 0.18);
+		}
+
+		.hero-shell,
+		.metric-shell,
+		.panel-shell,
+		.banner-shell,
+		.section-shell,
+		.timeline-shell,
+		.checklist-shell {
+			animation: rise-in 420ms ease both;
+		}
+
+		.hero-shell {
+			position: relative;
+			overflow: hidden;
+			border-radius: var(--radius-xl);
+			border: 1px solid rgba(156, 231, 237, 0.18);
+			padding: 1.3rem 1.3rem 1.15rem;
+			background:
+				radial-gradient(circle at 78% 22%, rgba(243, 139, 89, 0.14), transparent 26%),
+				radial-gradient(circle at 20% 12%, rgba(99, 208, 217, 0.18), transparent 34%),
+				linear-gradient(145deg, rgba(10, 21, 33, 0.98) 0%, rgba(12, 24, 37, 0.95) 42%, rgba(8, 18, 28, 0.98) 100%);
+			box-shadow: 0 30px 90px rgba(3, 10, 18, 0.42);
+			margin-bottom: 1rem;
+		}
+
+		.hero-shell::after {
+			content: "";
+			position: absolute;
+			inset: auto -15% -52% 45%;
+			height: 260px;
+			background: radial-gradient(circle, rgba(99, 208, 217, 0.18), transparent 68%);
+			pointer-events: none;
+		}
+
+		.hero-grid {
+			display: grid;
+			grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr);
+			gap: 1rem;
+			align-items: start;
+		}
+
+		.hero-ribbon {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
+			border-radius: 999px;
+			padding: 0.42rem 0.72rem;
+			border: 1px solid rgba(156, 231, 237, 0.18);
+			background: rgba(10, 25, 37, 0.72);
+			font-size: 0.76rem;
+			font-weight: 800;
+			letter-spacing: 0.14em;
+			text-transform: uppercase;
+			color: var(--accent-strong);
+			margin-bottom: 1rem;
+		}
+
+		.hero-title {
+			font-family: 'Sora', sans-serif;
+			font-size: clamp(1.75rem, 3.2vw, 2.55rem);
+			line-height: 1.02;
+			letter-spacing: -0.05em;
+			margin: 0;
+			max-width: 9.5em;
+		}
+
+		.hero-copy {
+			margin: 0.9rem 0 0;
+			color: #d7e3ef;
+			font-size: 0.95rem;
+			line-height: 1.68;
+			max-width: 60rem;
+		}
+
+		.hero-chip-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.7rem;
+			margin-top: 1rem;
+		}
+
+		.hero-chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.55rem;
+			padding: 0.54rem 0.88rem;
+			border-radius: 999px;
+			border: 1px solid var(--line);
+			background: rgba(16, 29, 43, 0.72);
+			color: #e5eef8;
+			font-size: 0.84rem;
+			font-weight: 700;
+		}
+
+		.hero-side {
+			display: grid;
+			gap: 0.7rem;
+		}
+
+		.hero-side-note {
+			padding: 1rem 1rem 0.9rem;
+			border-radius: 20px;
+			border: 1px solid var(--line);
+			background: linear-gradient(180deg, rgba(17, 31, 46, 0.8), rgba(10, 19, 30, 0.98));
+		}
+
+		.hero-side-label {
+			color: var(--muted);
+			text-transform: uppercase;
+			letter-spacing: 0.14em;
+			font-size: 0.74rem;
+			font-weight: 800;
+			margin-bottom: 0.5rem;
+		}
+
+		.hero-side-value {
+			font-size: 1.28rem;
+			font-weight: 800;
+			color: #f9fcff;
+			margin-bottom: 0.35rem;
+		}
+
+		.hero-side-copy {
+			font-size: 0.92rem;
+			line-height: 1.55;
+			color: #d2deea;
+		}
+
+		.section-shell {
+			margin: 0.45rem 0 1rem;
+			padding: 1rem 1.1rem;
+			border-radius: 24px;
+			border: 1px solid var(--line);
+			background: linear-gradient(180deg, rgba(13, 24, 37, 0.88) 0%, rgba(9, 17, 27, 0.94) 100%);
+			box-shadow: 0 20px 48px rgba(3, 10, 18, 0.24);
+		}
+
+		.section-head {
+			display: flex;
+			align-items: center;
+			gap: 0.9rem;
+			margin-bottom: 0.65rem;
+		}
+
+		.section-icon,
+		.metric-icon,
+		.panel-icon,
+		.banner-icon,
+		.hero-chip svg {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.section-icon,
+		.metric-icon,
+		.panel-icon,
+		.banner-icon {
+			width: 42px;
+			height: 42px;
+			border-radius: 14px;
+			border: 1px solid rgba(156, 231, 237, 0.16);
+			background: rgba(15, 29, 43, 0.92);
+			color: var(--accent-strong);
+			flex-shrink: 0;
+		}
+
+		.section-icon svg,
+		.metric-icon svg,
+		.panel-icon svg,
+		.banner-icon svg,
+		.hero-chip svg {
+			width: 20px;
+			height: 20px;
+			stroke: currentColor;
+			stroke-width: 1.8;
+			stroke-linecap: round;
+			stroke-linejoin: round;
 		}
 
 		.section-kicker {
-			color: var(--accent);
+			color: var(--accent-strong);
 			text-transform: uppercase;
-			letter-spacing: 0.16em;
+			letter-spacing: 0.18em;
 			font-size: 0.72rem;
-			font-weight: 700;
-			margin-bottom: 4px;
+			font-weight: 800;
+			margin-bottom: 0.15rem;
 		}
 
-		.section-headline {
-			font-size: 1.4rem;
-			margin-bottom: 4px;
+		.section-title {
+			font-family: 'Sora', sans-serif;
+			font-size: 1.55rem;
+			line-height: 1.08;
+			margin: 0;
+		}
+
+		.section-copy {
+			font-size: 0.96rem;
+			line-height: 1.7;
+			color: #d5e2ee;
+			margin: 0;
+		}
+
+		.metric-shell,
+		.panel-shell {
+			position: relative;
+			overflow: hidden;
+			border-radius: var(--radius-lg);
+			border: 1px solid var(--line);
+			background:
+				linear-gradient(180deg, rgba(15, 28, 41, 0.88) 0%, rgba(10, 19, 30, 0.98) 100%);
+			box-shadow: 0 20px 54px rgba(3, 10, 18, 0.26);
+		}
+
+		.metric-shell {
+			padding: 1rem 1rem 0.95rem;
+			min-height: 138px;
+		}
+
+		.panel-shell {
+			padding: 1rem 1rem 0.92rem;
+			min-height: 118px;
+		}
+
+		.metric-shell::before,
+		.panel-shell::before {
+			content: "";
+			position: absolute;
+			inset: 0 auto auto 0;
+			height: 3px;
+			width: 100%;
+			background: linear-gradient(90deg, rgba(99, 208, 217, 0.7), rgba(243, 139, 89, 0.56));
+			opacity: 0.6;
+		}
+
+		.metric-shell.tone-success::before,
+		.panel-shell.tone-success::before {
+			background: linear-gradient(90deg, rgba(60, 197, 141, 0.88), rgba(156, 231, 237, 0.66));
+		}
+
+		.metric-shell.tone-warning::before,
+		.panel-shell.tone-warning::before {
+			background: linear-gradient(90deg, rgba(244, 177, 104, 0.95), rgba(243, 139, 89, 0.72));
+		}
+
+		.metric-shell.tone-danger::before,
+		.panel-shell.tone-danger::before {
+			background: linear-gradient(90deg, rgba(255, 111, 97, 0.96), rgba(244, 177, 104, 0.64));
+		}
+
+		.metric-top,
+		.panel-top {
+			display: flex;
+			align-items: flex-start;
+			gap: 0.85rem;
+		}
+
+		.metric-label,
+		.panel-label {
+			font-size: 0.74rem;
+			text-transform: uppercase;
+			letter-spacing: 0.16em;
+			color: var(--muted);
+			font-weight: 800;
+		}
+
+		.metric-value {
+			font-family: 'Sora', sans-serif;
+			font-size: 1.52rem;
+			line-height: 1.08;
+			letter-spacing: -0.04em;
+			margin-top: 0.28rem;
+			color: #f7fbff;
+		}
+
+		.panel-value {
+			font-family: 'Sora', sans-serif;
+			font-size: 1.08rem;
+			line-height: 1.18;
+			letter-spacing: -0.03em;
+			margin-top: 0.26rem;
+			color: #f7fbff;
+		}
+
+		.metric-detail,
+		.panel-copy {
+			margin-top: 0.9rem;
+			font-size: 0.92rem;
+			line-height: 1.58;
+			color: #d0ddea;
+		}
+
+		.banner-shell {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr);
+			gap: 0.9rem;
+			align-items: start;
+			padding: 0.95rem 1rem;
+			border-radius: 20px;
+			border: 1px solid var(--line);
+			background: linear-gradient(180deg, rgba(17, 30, 44, 0.92) 0%, rgba(10, 18, 28, 0.97) 100%);
+			box-shadow: 0 18px 42px rgba(3, 10, 18, 0.24);
+			margin: 0.35rem 0 1rem;
+		}
+
+		.banner-shell.tone-warning {
+			border-color: rgba(244, 177, 104, 0.28);
+			background: linear-gradient(180deg, rgba(69, 44, 22, 0.38) 0%, rgba(10, 18, 28, 0.98) 100%);
+		}
+
+		.banner-shell.tone-success {
+			border-color: rgba(60, 197, 141, 0.22);
+			background: linear-gradient(180deg, rgba(17, 60, 45, 0.34) 0%, rgba(10, 18, 28, 0.98) 100%);
+		}
+
+		.banner-shell.tone-danger {
+			border-color: rgba(255, 111, 97, 0.3);
+			background: linear-gradient(180deg, rgba(76, 28, 26, 0.42) 0%, rgba(10, 18, 28, 0.98) 100%);
+		}
+
+		.banner-title {
+			font-size: 1rem;
+			font-weight: 800;
+			color: #f8fbff;
+			margin-bottom: 0.2rem;
+		}
+
+		.banner-copy {
+			font-size: 0.93rem;
+			line-height: 1.65;
+			color: #d3dfea;
 		}
 
 		.badge-row {
 			display: flex;
 			flex-wrap: wrap;
 			gap: 0.65rem;
-			margin-top: 0.65rem;
+			margin: 0.8rem 0 0.2rem;
 		}
 
 		.badge-pill {
 			display: inline-flex;
 			align-items: center;
-			padding: 0.42rem 0.8rem;
+			padding: 0.48rem 0.82rem;
 			border-radius: 999px;
 			border: 1px solid var(--line);
-			background: rgba(15, 23, 42, 0.8);
-			color: #e2e8f0;
-			font-size: 0.84rem;
-			font-weight: 600;
+			background: rgba(15, 28, 41, 0.82);
+			color: #dce7f2;
+			font-size: 0.8rem;
+			font-weight: 700;
+			letter-spacing: 0.01em;
 		}
 
-		div[data-baseweb="tab-list"] {
-			flex-wrap: wrap;
-			gap: 0.35rem;
-		}
-
-		button[data-baseweb="tab"] {
-			border-radius: 999px;
-			background: rgba(15, 23, 42, 0.72);
+		.timeline-shell,
+		.checklist-shell {
+			border-radius: var(--radius-lg);
 			border: 1px solid var(--line);
-			color: #cbd5e1;
-			white-space: normal;
-			height: auto;
-			min-height: 2.6rem;
-			line-height: 1.2;
+			background: linear-gradient(180deg, rgba(14, 25, 38, 0.88) 0%, rgba(10, 18, 28, 0.96) 100%);
+			padding: 0.95rem 1rem;
+			box-shadow: 0 18px 44px rgba(3, 10, 18, 0.22);
 		}
 
-		button[data-baseweb="tab"][aria-selected="true"] {
-			background: linear-gradient(90deg, rgba(45, 212, 191, 0.18) 0%, rgba(56, 189, 248, 0.14) 100%);
-			color: #f8fafc;
-			border-color: rgba(45, 212, 191, 0.3);
+		.timeline-step,
+		.checklist-item {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr);
+			gap: 0.8rem;
+			align-items: start;
 		}
 
-		[data-testid="stImage"] img, [data-testid="stDataFrame"] {
-			border-radius: 18px;
-			overflow: hidden;
+		.timeline-step + .timeline-step,
+		.checklist-item + .checklist-item {
+			margin-top: 0.85rem;
+			padding-top: 0.85rem;
+			border-top: 1px solid rgba(146, 165, 185, 0.12);
+		}
+
+		.timeline-dot,
+		.checklist-dot {
+			width: 14px;
+			height: 14px;
+			border-radius: 999px;
+			margin-top: 0.28rem;
+			background: linear-gradient(135deg, rgba(99, 208, 217, 0.96), rgba(243, 139, 89, 0.78));
+			box-shadow: 0 0 0 6px rgba(99, 208, 217, 0.08);
+		}
+
+		.timeline-step-name {
+			font-size: 0.8rem;
+			text-transform: uppercase;
+			letter-spacing: 0.16em;
+			font-weight: 800;
+			color: var(--muted);
+		}
+
+		.timeline-step-title,
+		.checklist-text {
+			font-size: 0.94rem;
+			line-height: 1.62;
+			color: #dce6f0;
+			margin-top: 0.15rem;
+		}
+
+		.timeline-status {
+			display: inline-flex;
+			align-items: center;
+			margin-top: 0.42rem;
+			padding: 0.22rem 0.56rem;
+			border-radius: 999px;
+			background: rgba(15, 28, 41, 0.72);
+			border: 1px solid rgba(146, 165, 185, 0.15);
+			font-size: 0.72rem;
+			font-weight: 800;
+			text-transform: uppercase;
+			letter-spacing: 0.12em;
+			color: var(--accent-strong);
+		}
+
+		@keyframes rise-in {
+			from {
+				opacity: 0;
+				transform: translateY(6px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		@media (max-width: 1440px) {
+			[data-testid="block-container"] {
+				padding-left: 0.9rem;
+				padding-right: 0.9rem;
+			}
+
+			.hero-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.hero-title {
+				font-size: clamp(1.7rem, 3vw, 2.3rem);
+			}
+
+			.metric-value {
+				font-size: 1.38rem;
+			}
+		}
+
+		@media (max-width: 900px) {
+			.hero-shell,
+			.section-shell,
+			.metric-shell,
+			.panel-shell,
+			.banner-shell,
+			.timeline-shell,
+			.checklist-shell {
+				border-radius: 20px;
+			}
+
+			.section-head {
+				align-items: flex-start;
+			}
+
+			.metric-detail,
+			.panel-copy,
+			.banner-copy {
+				font-size: 0.9rem;
+			}
 		}
 		</style>
 		""",
@@ -864,34 +1364,117 @@ def pick_random_test_image(data_dir: Path) -> tuple[Image.Image | None, str | No
 	return Image.open(selected).convert("RGB"), selected.name
 
 
-def render_metric_tile(label: str, value: str, detail: str, tone: str = "neutral") -> None:
-	st.markdown(f"**{label}**")
-	st.markdown(f"### {value}")
-	st.caption(detail)
+def render_hero(
+	title: str,
+	copy: str,
+	chips: list[str],
+	side_notes: list[tuple[str, str, str]],
+) -> None:
+	chips_html = "".join(
+		f"<span class='hero-chip'>{ICON_SVGS[guess_icon_name(chip)]}{escape_html(chip)}</span>"
+		for chip in chips
+	)
+	side_html = "".join(
+		dedent(
+			f"""
+			<div class="hero-side-note">
+				<div class="hero-side-label">{escape_html(label)}</div>
+				<div class="hero-side-value">{escape_html(value)}</div>
+				<div class="hero-side-copy">{format_html_copy(detail)}</div>
+			</div>
+			"""
+		).strip()
+		for label, value, detail in side_notes
+	)
+	render_html(
+		f"""
+		<section class="hero-shell">
+			<div class="hero-ribbon">{ICON_SVGS['stack']}Research operations surface</div>
+			<div class="hero-grid">
+				<div>
+					<h1 class="hero-title">{escape_html(title)}</h1>
+					<p class="hero-copy">{format_html_copy(copy)}</p>
+					<div class="hero-chip-row">{chips_html}</div>
+				</div>
+				<div class="hero-side">{side_html}</div>
+			</div>
+		</section>
+		"""
+	)
 
 
-def render_panel(title: str, value: str, copy: str) -> None:
-	st.markdown(f"**{title}**")
-	st.markdown(f"#### {value}")
-	st.caption(copy)
+def render_metric_tile(
+	label: str,
+	value: str,
+	detail: str,
+	tone: str = "neutral",
+	icon: str | None = None,
+) -> None:
+	icon_name = icon or guess_icon_name(label)
+	render_html(
+		f"""
+		<div class="metric-shell tone-{escape_html(tone)}">
+			<div class="metric-top">
+				<div class="metric-icon">{ICON_SVGS[icon_name]}</div>
+				<div>
+					<div class="metric-label">{escape_html(label)}</div>
+					<div class="metric-value">{escape_html(value)}</div>
+				</div>
+			</div>
+			<div class="metric-detail">{format_html_copy(detail)}</div>
+		</div>
+		"""
+	)
 
 
-def render_banner(title: str, copy: str, tone: str = "neutral") -> None:
-	message = f"**{title}**\n\n{copy}"
-	if tone == "success":
-		st.success(message)
-	elif tone == "warning":
-		st.warning(message)
-	elif tone == "danger":
-		st.error(message)
-	else:
-		st.info(message)
+def render_panel(
+	title: str,
+	value: str,
+	copy: str,
+	tone: str = "neutral",
+	icon: str | None = None,
+) -> None:
+	icon_name = icon or guess_icon_name(title)
+	render_html(
+		f"""
+		<div class="panel-shell tone-{escape_html(tone)}">
+			<div class="panel-top">
+				<div class="panel-icon">{ICON_SVGS[icon_name]}</div>
+				<div>
+					<div class="panel-label">{escape_html(title)}</div>
+					<div class="panel-value">{escape_html(value)}</div>
+				</div>
+			</div>
+			<div class="panel-copy">{format_html_copy(copy)}</div>
+		</div>
+		"""
+	)
+
+
+def render_banner(
+	title: str,
+	copy: str,
+	tone: str = "neutral",
+	icon: str | None = None,
+) -> None:
+	icon_name = icon or guess_icon_name(title)
+	render_html(
+		f"""
+		<div class="banner-shell tone-{escape_html(tone)}">
+			<div class="banner-icon">{ICON_SVGS[icon_name]}</div>
+			<div>
+				<div class="banner-title">{escape_html(title)}</div>
+				<div class="banner-copy">{format_html_copy(copy)}</div>
+			</div>
+		</div>
+		"""
+	)
 
 
 def render_probability_rows(top_predictions: list[dict]) -> None:
 	for item in top_predictions:
 		confidence = float(item["confidence"])
-		left, right = st.columns([4, 1])
+		left, right = st.columns([4, 1], gap="small")
 		with left:
 			st.markdown(f"**{item['class_name']}**")
 		with right:
@@ -899,14 +1482,70 @@ def render_probability_rows(top_predictions: list[dict]) -> None:
 		st.progress(max(0, min(100, int(round(confidence * 100)))))
 
 
-def render_section_intro(kicker: str, headline: str, copy: str) -> None:
-	st.caption(kicker.upper())
-	st.subheader(headline)
-	st.write(copy)
+def render_section_intro(
+	kicker: str,
+	headline: str,
+	copy: str,
+	icon: str | None = None,
+) -> None:
+	icon_name = icon or guess_icon_name(f"{kicker} {headline}")
+	render_html(
+		f"""
+		<section class="section-shell">
+			<div class="section-head">
+				<div class="section-icon">{ICON_SVGS[icon_name]}</div>
+				<div>
+					<div class="section-kicker">{escape_html(kicker)}</div>
+					<h2 class="section-title">{escape_html(headline)}</h2>
+				</div>
+			</div>
+			<p class="section-copy">{format_html_copy(copy)}</p>
+		</section>
+		"""
+	)
 
 
 def render_badge_row(badges: list[str]) -> None:
-	st.caption(" | ".join(badges))
+	chips = "".join(f"<span class='badge-pill'>{escape_html(badge)}</span>" for badge in badges)
+	render_html(f"<div class='badge-row'>{chips}</div>")
+
+
+def render_trace_steps(trace_steps: list[dict]) -> None:
+	if not trace_steps:
+		return
+	steps_html = "".join(
+		dedent(
+			f"""
+			<div class="timeline-step">
+				<div class="timeline-dot"></div>
+				<div>
+					<div class="timeline-step-name">{escape_html(step.get('step', 'step'))}</div>
+					<div class="timeline-step-title">{format_html_copy(step.get('summary', 'No summary available.'))}</div>
+					<div class="timeline-status">{escape_html(step.get('status', 'unknown'))}</div>
+				</div>
+			</div>
+			"""
+		).strip()
+		for step in trace_steps
+	)
+	render_html(f"<div class='timeline-shell'>{steps_html}</div>")
+
+
+def render_checklist(items: list[str]) -> None:
+	if not items:
+		return
+	items_html = "".join(
+		dedent(
+			f"""
+			<div class="checklist-item">
+				<div class="checklist-dot"></div>
+				<div class="checklist-text">{format_html_copy(item)}</div>
+			</div>
+			"""
+		).strip()
+		for item in items
+	)
+	render_html(f"<div class='checklist-shell'>{items_html}</div>")
 
 
 def build_operational_checklist(decision: dict, diagnostics: dict) -> list[str]:
@@ -1066,11 +1705,36 @@ def main() -> None:
 	clustering_metrics = supporting["clustering_metrics"]
 	clustering_results = supporting["clustering_results"]
 
-	st.caption("CURRENT CLASSIFICATION SYSTEM")
-	st.title("E-Waste Operations Console")
-	st.write(
-		"This interface presents the current single-label classifier, policy outputs, benchmark records, and supporting analytics "
-		"in one place. It also marks when an input is outside the assumptions of the training data, especially for mixed-object scenes."
+	render_hero(
+		title="E-Waste Operations Console",
+		copy=(
+			"A premium operator surface for the current research stack: single-label classification, "
+			"confidence-gated review, hazard-aware routing, benchmark evidence, and analytical support layers. "
+			"Mixed scenes are surfaced honestly as triage cases rather than being overstated as true detection."
+		),
+		chips=[
+			f"active backbone {best_arch}",
+			f"human review threshold {confidence_threshold:.0%}",
+			f"scene scan {'enabled' if enable_scene_scan else 'disabled'}",
+			f"llm {'groq online' if os.getenv('GROQ_API_KEY') else 'deterministic mode'}",
+		],
+		side_notes=[
+			(
+				"Archived benchmark",
+				format_pct(float(best_archived_row["accuracy"])) if best_archived_row is not None else "n/a",
+				"Best archived single-label benchmark currently available in the repository.",
+			),
+			(
+				"Hazard ANN",
+				format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a",
+				"Tabular hazard model accuracy for downstream severity support.",
+			),
+			(
+				"Runtime",
+				runtime.device.type.upper(),
+				f"{runtime.gpu_name or 'CPU execution'} | {f'{runtime.vram_gb:.2f} GB VRAM' if runtime.vram_gb is not None else 'memory profile unavailable'}",
+			),
+		],
 	)
 
 	if discrepancy_note:
@@ -1078,21 +1742,22 @@ def main() -> None:
 			"Benchmark context",
 			discrepancy_note + " The collage example is a mixed-object scene, so a low live confidence is an uncertainty signal rather than a reliable single-class decision.",
 			tone="warning",
+			icon="warning",
 		)
 
 	top_row = st.columns(3)
 	with top_row[0]:
-		render_metric_tile("Deployed architecture", best_arch, f"checkpoint: {Path(best_checkpoint).name}", "neutral")
+		render_metric_tile("Deployed architecture", best_arch, f"checkpoint: {Path(best_checkpoint).name}", "neutral", icon="cpu")
 	with top_row[1]:
-		render_metric_tile("Archived benchmark", format_pct(float(best_archived_row["accuracy"])) if best_archived_row is not None else "n/a", "source: dl_results.json", "success")
+		render_metric_tile("Archived benchmark", format_pct(float(best_archived_row["accuracy"])) if best_archived_row is not None else "n/a", "source: dl_results.json", "success", icon="chart")
 	with top_row[2]:
-		render_metric_tile("Script benchmark", format_pct(float(best_script_row["accuracy"])) if best_script_row is not None else "n/a", "source: test_results.json", "warning")
+		render_metric_tile("Script benchmark", format_pct(float(best_script_row["accuracy"])) if best_script_row is not None else "n/a", "source: test_results.json", "warning", icon="review")
 
 	second_row = st.columns(2)
 	with second_row[0]:
-		render_metric_tile("Hazard ANN accuracy", format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a", "18-class hazard snapshot", "success")
+		render_metric_tile("Hazard ANN accuracy", format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a", "18-class hazard snapshot", "success", icon="shield")
 	with second_row[1]:
-		render_metric_tile("Cluster groups", str(clustering_results.get("n_clusters", "n/a")), "unsupervised structure available", "neutral")
+		render_metric_tile("Cluster groups", str(clustering_results.get("n_clusters", "n/a")), "unsupervised structure available", "neutral", icon="cluster")
 
 	if "pending_image" not in st.session_state:
 		st.session_state["pending_image"] = None
@@ -1112,9 +1777,11 @@ def main() -> None:
 			"Inference",
 			"Operational inference review",
 			"Submit an image, inspect confidence distribution, and review composite-scene cues before any downstream routing decision.",
+			icon="gallery",
 		)
+		render_badge_row(["Intake", "Single-label inference", "Confidence gating", "Composite-scene review"])
 
-		left, right = st.columns([1.08, 0.92], gap="large")
+		left, right = st.columns([1.06, 0.94], gap="large")
 		with left:
 			uploaded = st.file_uploader(
 				"Image intake",
@@ -1161,7 +1828,7 @@ def main() -> None:
 					]
 				)
 			else:
-				st.info("Load a test image or upload a sample to start inference.")
+				render_panel("Intake queue", "No active image", "Load a test image or upload a sample to start an operator review cycle.", icon="gallery")
 
 		image = st.session_state.get("pending_image")
 		if image is not None and run_btn:
@@ -1191,20 +1858,25 @@ def main() -> None:
 		with right:
 			result = st.session_state.get("last_result")
 			if not result:
-				render_panel("Inference state", "Awaiting input", "Run inference to populate confidence, hazard, and scene evidence.")
+				render_panel("Inference state", "Awaiting input", "Run inference to populate confidence, hazard, and scene evidence.", icon="review")
 			else:
 				prediction = result["prediction"]
 				decision = result["decision"]
 				diagnostics = result["diagnostics"]
-				r1, r2, r3 = st.columns(3)
+				r1, r2 = st.columns(2, gap="small")
 				with r1:
-					render_panel("Predicted class", prediction["class_name"], "single-label top prediction")
+					render_panel("Predicted class", prediction["class_name"], "single-label top prediction", icon="stack")
 				with r2:
-					render_panel("Confidence", format_pct(prediction["confidence"]), "measured on this input")
-				with r3:
-					render_panel("Latency", f"{result['elapsed_ms']} ms", "single-image forward pass")
-				st.caption(f"Hazard band: {decision.get('hazard_level', 'UNKNOWN')}")
-				render_banner(diagnostics["headline"], diagnostics["detail"], diagnostics["tone"])
+					render_panel("Confidence", format_pct(prediction["confidence"]), "measured on this input", icon="gauge")
+				render_panel("Latency", f"{result['elapsed_ms']} ms", "single-image forward pass", icon="bolt")
+				render_badge_row(
+					[
+						f"hazard band {decision.get('hazard_level', 'UNKNOWN')}",
+						f"human review {'required' if decision.get('requires_human_review', True) else 'clear'}",
+						f"explanation {decision.get('explanation_source', 'rule-based')}",
+					]
+				)
+				render_banner(diagnostics["headline"], diagnostics["detail"], diagnostics["tone"], icon="review")
 				st.markdown("#### Top-5 Class Scores")
 				render_probability_rows(prediction["top_predictions"])
 
@@ -1217,6 +1889,7 @@ def main() -> None:
 					scene_analysis["headline"],
 					f"Tile scan uses a {scene_analysis['grid_size']}x{scene_analysis['grid_size']} grid and reports tiles above {scene_analysis['tile_floor']:.2%}. This is a review aid, not object detection.",
 					"neutral",
+					icon="cluster",
 				)
 				s1, s2 = st.columns([1.05, 0.95], gap="large")
 				with s1:
@@ -1228,13 +1901,12 @@ def main() -> None:
 						st.dataframe(component_frame, width="stretch", hide_index=True)
 				with s2:
 					hazard_counts = scene_analysis["hazard_counts"]
-					h1, h2, h3 = st.columns(3)
+					h1, h2 = st.columns(2, gap="small")
 					with h1:
-						render_metric_tile("High-risk tiles", str(hazard_counts.get("HIGH", 0)), "tile-level hazard evidence", "danger")
+						render_metric_tile("High-risk tiles", str(hazard_counts.get("HIGH", 0)), "tile-level hazard evidence", "danger", icon="warning")
 					with h2:
-						render_metric_tile("Medium-risk tiles", str(hazard_counts.get("MEDIUM", 0)), "tile-level hazard evidence", "warning")
-					with h3:
-						render_metric_tile("Low-risk tiles", str(hazard_counts.get("LOW", 0)), "tile-level hazard evidence", "success")
+						render_metric_tile("Medium-risk tiles", str(hazard_counts.get("MEDIUM", 0)), "tile-level hazard evidence", "warning", icon="shield")
+					render_metric_tile("Low-risk tiles", str(hazard_counts.get("LOW", 0)), "tile-level hazard evidence", "success", icon="spark")
 				tile_columns = st.columns(scene_analysis["grid_size"])
 				for idx, tile in enumerate(scene_analysis["tiles"]):
 					crop = image.crop(tuple(tile["box"]))
@@ -1251,25 +1923,27 @@ def main() -> None:
 			"Decision",
 			"Policy and routing review",
 			"This panel exposes the actual decision output: hazard lookup, compliance signal, recommendation mode, and the trace used to assemble the final response.",
+			icon="route",
 		)
 		result = st.session_state.get("last_result")
 		if not result:
-			st.info("Run inference first to generate hazard and routing guidance.")
+			render_panel("Policy queue", "Awaiting inference", "Run inference first to generate hazard and routing guidance.", icon="route")
 		else:
 			decision = result["decision"]
 			diagnostics = result["diagnostics"]
-			p1, p2, p3, p4 = st.columns(4)
-			with p1:
-				render_metric_tile("Hazard level", decision.get("hazard_level", "n/a"), "mapped from policy taxonomy", "danger" if decision.get("hazard_level") == "HIGH" else "warning")
-			with p2:
-				render_metric_tile("SDG target", decision.get("sdg_target", "n/a"), "policy alignment output", "neutral")
-			with p3:
-				render_metric_tile("Human review", "Required" if decision.get("requires_human_review", True) else "Not required", f"threshold: {decision.get('confidence_threshold', confidence_threshold):.2%}", "warning" if decision.get("requires_human_review", True) else "success")
-			with p4:
-				render_metric_tile("Decision mode", decision.get("agent_mode", "n/a"), f"provider: {decision.get('llm_provider', 'none')} | source: {decision.get('explanation_source', 'n/a')}", "neutral")
+			p_top = st.columns(2, gap="large")
+			p_bottom = st.columns(2, gap="large")
+			with p_top[0]:
+				render_metric_tile("Hazard level", decision.get("hazard_level", "n/a"), "mapped from policy taxonomy", "danger" if decision.get("hazard_level") == "HIGH" else "warning", icon="shield")
+			with p_top[1]:
+				render_metric_tile("SDG target", decision.get("sdg_target", "n/a"), "policy alignment output", "neutral", icon="spark")
+			with p_bottom[0]:
+				render_metric_tile("Human review", "Required" if decision.get("requires_human_review", True) else "Not required", f"threshold: {decision.get('confidence_threshold', confidence_threshold):.2%}", "warning" if decision.get("requires_human_review", True) else "success", icon="review")
+			with p_bottom[1]:
+				render_metric_tile("Decision mode", decision.get("agent_mode", "n/a"), f"provider: {decision.get('llm_provider', 'none')} | source: {decision.get('explanation_source', 'n/a')}", "neutral", icon="route")
 			l1, l2 = st.columns([1.05, 0.95], gap="large")
 			with l1:
-				render_panel("Recommended pathway", decision.get("short_recommendation", "n/a"), "routing output after tool execution")
+				render_panel("Recommended pathway", decision.get("short_recommendation", "n/a"), "routing output after tool execution", tone="success" if not decision.get("requires_human_review", True) else "warning", icon="route")
 				st.markdown("#### Material Profile")
 				st.write(decision.get("material_profile", "n/a"))
 				st.markdown("#### Decision Rationale")
@@ -1277,7 +1951,7 @@ def main() -> None:
 				if decision.get("llm_error"):
 					st.warning(f"LLM augmentation failed and the system fell back to deterministic reasoning: {decision['llm_error']}")
 			with l2:
-				render_banner("Operating interpretation", "Tie the routing decision to confidence. Confident single-component inputs can proceed automatically; ambiguous or composite scenes should stop at triage.", "neutral")
+				render_banner("Operating interpretation", "Tie the routing decision to confidence. Confident single-component inputs can proceed automatically; ambiguous or composite scenes should stop at triage.", "neutral", icon="route")
 				render_badge_row(
 					[
 						f"compliance: {'ready' if decision.get('compliance_flag', False) else 'escalate'}",
@@ -1287,12 +1961,11 @@ def main() -> None:
 					]
 				)
 				st.markdown("#### Operational Checklist")
-				for item in build_operational_checklist(decision, diagnostics):
-					st.markdown(f"- {item}")
-			trace = pd.DataFrame(decision.get("tool_trace", []))
-			if not trace.empty:
+				render_checklist(build_operational_checklist(decision, diagnostics))
+			trace_steps = decision.get("tool_trace", [])
+			if trace_steps:
 				st.markdown("#### Tool Execution Trace")
-				st.dataframe(trace, width="stretch", hide_index=True)
+				render_trace_steps(trace_steps)
 			with st.expander("Raw decision payload"):
 				st.json(decision)
 
@@ -1301,13 +1974,14 @@ def main() -> None:
 			"Benchmarks",
 			"Evaluation records",
 			"This section surfaces benchmark tables, confusion matrices, training curves, and interpretability artifacts already present in the repository.",
+			icon="chart",
 		)
 		if discrepancy_note:
-			render_banner("Benchmark caution", discrepancy_note + " Do not present the archived and script metrics as if they were one experiment.", "warning")
+			render_banner("Benchmark caution", discrepancy_note + " Do not present the archived and script metrics as if they were one experiment.", "warning", icon="warning")
 		b1, b2 = st.columns([0.95, 1.05], gap="large")
 		with b1:
 			if primary_metrics.empty:
-				st.info("No benchmark metrics JSON found in models/classification.")
+				render_panel("Benchmark records", "Unavailable", "No benchmark metrics JSON found in models/classification.", icon="chart")
 			else:
 				display_primary = primary_metrics.copy()
 				display_primary["accuracy"] = display_primary["accuracy"].map(lambda x: f"{x:.2%}")
@@ -1319,24 +1993,21 @@ def main() -> None:
 				source_frame = metric_catalog.loc[metric_catalog["source"] == selected_source]
 				st.bar_chart(source_frame.set_index("architecture")[["accuracy", "macro_f1"]], width="stretch")
 		with b2:
-			st.markdown(
-				"""
-				- `dl_results.json` contains the stronger archived benchmark snapshot shown in the confusion matrix image.
-				- `test_results.json` contains the script-generated benchmark for the current classification pipeline when that file is present.
-				- Mixed-scene failure is expected because the dataset is structured as one class per image folder.
-				- A low live confidence is an uncertainty signal, not proof that the model is confidently wrong.
-				"""
+			render_panel(
+				"Evidence interpretation",
+				"Read the benchmark in scope",
+				"`dl_results.json` is the stronger archived snapshot. `test_results.json` is the current script-generated benchmark when present. Mixed-scene failure is expected because the dataset is single-label by design.",
+				icon="review",
 			)
-		i1, i2 = st.columns(2, gap="large")
-		with i1:
-			st.markdown("#### Confusion Matrices")
+			render_badge_row(["Single-label benchmark", "Held-out evaluation", "Interpretability available", "Do not overclaim scene performance"])
+		bench_tabs = st.tabs(["Confusion", "Per-Class F1", "Curves", "Grad-CAM"])
+		with bench_tabs[0]:
 			st.image(str(classification_dir / "graphs" / "confusion_matrices_18cls.png"), width="stretch")
-			st.markdown("#### Per-Class F1 Comparison")
+		with bench_tabs[1]:
 			st.image(str(classification_dir / "graphs" / "per_class_f1_comparison.png"), width="stretch")
-		with i2:
-			st.markdown("#### Training Curves")
+		with bench_tabs[2]:
 			st.image(str(classification_dir / "graphs" / "training_curves_18cls.png"), width="stretch")
-			st.markdown("#### Interpretability Gallery")
+		with bench_tabs[3]:
 			st.image(str(classification_dir / "graphs" / "gradcam_all_classes.png"), width="stretch")
 
 		st.markdown("#### Results Drafting")
@@ -1365,25 +2036,31 @@ def main() -> None:
 			"Analytics",
 			"Supporting analytical outputs",
 			"These panels bring the hazard ANN and clustering outputs into the same interface so the analytical scope of the project is visible alongside the classifier.",
+			icon="cluster",
 		)
-		a1, a2, a3, a4 = st.columns(4)
-		with a1:
-			render_metric_tile("Hazard class accuracy", format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a", "18-class ANN hazard snapshot", "success")
-		with a2:
-			render_metric_tile("Regression R2", format_float(float(ann_results.get("regression_metrics", {}).get("r2"))) if ann_results else "n/a", "hazard severity regression", "neutral")
-		with a3:
-			render_metric_tile("Silhouette", format_float(float(clustering_metrics.get("silhouette_score"))) if clustering_metrics else "n/a", "cluster separation score", "warning")
-		with a4:
-			render_metric_tile("NMI", format_float(float(clustering_results.get("normalized_mutual_info"))) if clustering_results else "n/a", "alignment with known labels", "neutral")
-		g1, g2 = st.columns(2, gap="large")
-		with g1:
-			st.markdown("#### Hazard Model Views")
-			st.image(str(ann_dir / "feature_importance.png"), width="stretch")
-			st.image(str(ann_dir / "hazard_class_confusion.png"), width="stretch")
-		with g2:
-			st.markdown("#### Unsupervised Structure")
-			st.image(str(clustering_dir / "tsne_by_class.png"), width="stretch")
-			st.image(str(clustering_dir / "tsne_by_hazard.png"), width="stretch")
+		a_top = st.columns(2, gap="large")
+		a_bottom = st.columns(2, gap="large")
+		with a_top[0]:
+			render_metric_tile("Hazard class accuracy", format_pct(float(ann_results_18cls.get("hazard_class_accuracy"))) if ann_results_18cls else "n/a", "18-class ANN hazard snapshot", "success", icon="shield")
+		with a_top[1]:
+			render_metric_tile("Regression R2", format_float(float(ann_results.get("regression_metrics", {}).get("r2"))) if ann_results else "n/a", "hazard severity regression", "neutral", icon="chart")
+		with a_bottom[0]:
+			render_metric_tile("Silhouette", format_float(float(clustering_metrics.get("silhouette_score"))) if clustering_metrics else "n/a", "cluster separation score", "warning", icon="cluster")
+		with a_bottom[1]:
+			render_metric_tile("NMI", format_float(float(clustering_results.get("normalized_mutual_info"))) if clustering_results else "n/a", "alignment with known labels", "neutral", icon="spark")
+		analytics_tabs = st.tabs(["Hazard Model", "Clustering"])
+		with analytics_tabs[0]:
+			a_img1, a_img2 = st.columns(2, gap="large")
+			with a_img1:
+				st.image(str(ann_dir / "feature_importance.png"), width="stretch")
+			with a_img2:
+				st.image(str(ann_dir / "hazard_class_confusion.png"), width="stretch")
+		with analytics_tabs[1]:
+			c_img1, c_img2 = st.columns(2, gap="large")
+			with c_img1:
+				st.image(str(clustering_dir / "tsne_by_class.png"), width="stretch")
+			with c_img2:
+				st.image(str(clustering_dir / "tsne_by_hazard.png"), width="stretch")
 
 		st.markdown("#### Discussion Drafting")
 		if st.button("Draft discussion paragraph", key="generate_discussion_paragraph"):
@@ -1409,6 +2086,7 @@ def main() -> None:
 			"Registry",
 			"Model and data inventory",
 			"This view inventories checkpoints, dataset balance, and the hazard taxonomy used by the policy layer.",
+			icon="database",
 		)
 		registry_rows = []
 		for arch, path in assets["checkpoints"].items():
@@ -1419,19 +2097,22 @@ def main() -> None:
 					"status": "active" if arch == best_arch else "available",
 				}
 			)
-		st.dataframe(pd.DataFrame(registry_rows), width="stretch", hide_index=True)
-		if not dataset_profile.empty:
-			split_choice = st.selectbox("Dataset split", options=sorted(dataset_profile["split"].unique().tolist()))
-			split_frame = dataset_profile.loc[dataset_profile["split"] == split_choice].copy()
-			st.dataframe(split_frame.sort_values("class_name"), width="stretch", hide_index=True)
-			st.bar_chart(split_frame.set_index("class_name")[["count"]], width="stretch")
-			t1, t2, t3 = st.columns(3)
-			with t1:
-				render_metric_tile("Train images", str(dataset_profile_payload["totals"].get("train", "n/a")), "single-label foldered data", "neutral")
-			with t2:
-				render_metric_tile("Validation images", str(dataset_profile_payload["totals"].get("val", "n/a")), "held-out tuning split", "neutral")
-			with t3:
-				render_metric_tile("Test images", str(dataset_profile_payload["totals"].get("test", "n/a")), "held-out evaluation split", "neutral")
+		registry_tabs = st.tabs(["Checkpoints", "Dataset", "Taxonomy"])
+		with registry_tabs[0]:
+			st.dataframe(pd.DataFrame(registry_rows), width="stretch", hide_index=True)
+		with registry_tabs[1]:
+			if not dataset_profile.empty:
+				split_choice = st.selectbox("Dataset split", options=sorted(dataset_profile["split"].unique().tolist()))
+				split_frame = dataset_profile.loc[dataset_profile["split"] == split_choice].copy()
+				st.dataframe(split_frame.sort_values("class_name"), width="stretch", hide_index=True)
+				st.bar_chart(split_frame.set_index("class_name")[["count"]], width="stretch")
+				t1, t2, t3 = st.columns(3)
+				with t1:
+					render_metric_tile("Train images", str(dataset_profile_payload["totals"].get("train", "n/a")), "single-label foldered data", "neutral", icon="database")
+				with t2:
+					render_metric_tile("Validation images", str(dataset_profile_payload["totals"].get("val", "n/a")), "held-out tuning split", "neutral", icon="review")
+				with t3:
+					render_metric_tile("Test images", str(dataset_profile_payload["totals"].get("test", "n/a")), "held-out evaluation split", "neutral", icon="chart")
 		taxonomy_rows = []
 		for component in sorted(HAZARD_MAP.keys(), key=str.lower):
 			taxonomy_rows.append(
@@ -1442,12 +2123,14 @@ def main() -> None:
 					"disposal_pathway": DISPOSAL_MAP.get(component, "n/a"),
 				}
 			)
-		st.markdown("#### Hazard Taxonomy")
-		st.dataframe(pd.DataFrame(taxonomy_rows), width="stretch", hide_index=True)
+		with registry_tabs[2]:
+			st.markdown("#### Hazard Taxonomy")
+			st.dataframe(pd.DataFrame(taxonomy_rows), width="stretch", hide_index=True)
 		render_banner(
 			"Deployment scope",
 			"The current vision stack is a single-label component classifier. Present the scene scan as composite-image triage and reserve true detection or multi-label classification as future work.",
 			"warning",
+			icon="warning",
 		)
 
 

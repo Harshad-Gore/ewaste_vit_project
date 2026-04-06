@@ -9,6 +9,7 @@ from training.checkpoint_utils import has_any_classification_checkpoint
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+DEFAULT_ARCHES = "resnet18,resnet50,efficientnet_b0,efficientnet_b3,convnext_tiny,swin_tiny,vit_b16"
 
 
 def run_cmd(cmd: list[str]) -> None:
@@ -22,8 +23,8 @@ def parse_args() -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_train = sub.add_parser("train", help="run adaptive deep-learning benchmark")
-    p_train.add_argument("--arches", type=str, default="resnet50,vit_b16,convnext_tiny,swin_tiny,efficientnet_b3")
-    p_train.add_argument("--epochs", type=int, default=30)
+    p_train.add_argument("--arches", type=str, default=DEFAULT_ARCHES)
+    p_train.add_argument("--epochs", type=int, default=40)
 
     p_compete = sub.add_parser("compete", help="run deep + traditional model competition")
     p_compete.add_argument("--embedding-arch", type=str, default=None)
@@ -32,8 +33,8 @@ def parse_args() -> argparse.Namespace:
     sub.add_parser("ann", help="run ann hazard pipeline")
 
     p_all = sub.add_parser("all", help="run full pipeline in sequence")
-    p_all.add_argument("--arches", type=str, default="resnet50,vit_b16,convnext_tiny,swin_tiny,efficientnet_b3")
-    p_all.add_argument("--epochs", type=int, default=30)
+    p_all.add_argument("--arches", type=str, default=DEFAULT_ARCHES)
+    p_all.add_argument("--epochs", type=int, default=40)
     p_all.add_argument(
         "--force-train",
         action="store_true",

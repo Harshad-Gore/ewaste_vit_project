@@ -1,0 +1,125 @@
+model: vit_b16
+
+{
+  "Air-Conditioner": {
+    "precision": 0.9803921568627451,
+    "recall": 1.0,
+    "f1-score": 0.9900990099009901,
+    "support": 100.0
+  },
+  "Battery": {
+    "precision": 0.98,
+    "recall": 0.98,
+    "f1-score": 0.98,
+    "support": 100.0
+  },
+  "Keyboard": {
+    "precision": 0.9801980198019802,
+    "recall": 0.99,
+    "f1-score": 0.9850746268656716,
+    "support": 100.0
+  },
+  "Laptop": {
+    "precision": 0.9801980198019802,
+    "recall": 0.99,
+    "f1-score": 0.9850746268656716,
+    "support": 100.0
+  },
+  "Microchip-IC": {
+    "precision": 0.9009009009009009,
+    "recall": 1.0,
+    "f1-score": 0.9478672985781991,
+    "support": 100.0
+  },
+  "Microwave": {
+    "precision": 1.0,
+    "recall": 0.99,
+    "f1-score": 0.9949748743718593,
+    "support": 100.0
+  },
+  "Mobile": {
+    "precision": 0.9611650485436893,
+    "recall": 0.99,
+    "f1-score": 0.9753694581280788,
+    "support": 100.0
+  },
+  "Mouse": {
+    "precision": 0.9801980198019802,
+    "recall": 0.99,
+    "f1-score": 0.9850746268656716,
+    "support": 100.0
+  },
+  "PCB": {
+    "precision": 0.9797979797979798,
+    "recall": 0.97,
+    "f1-score": 0.9748743718592965,
+    "support": 100.0
+  },
+  "Passive-Component": {
+    "precision": 0.9888888888888889,
+    "recall": 0.89,
+    "f1-score": 0.9368421052631579,
+    "support": 100.0
+  },
+  "Printer": {
+    "precision": 1.0,
+    "recall": 0.96,
+    "f1-score": 0.9795918367346939,
+    "support": 100.0
+  },
+  "Refrigerator": {
+    "precision": 1.0,
+    "recall": 0.98,
+    "f1-score": 0.98989898989899,
+    "support": 100.0
+  },
+  "Resistor": {
+    "precision": 1.0,
+    "recall": 0.98,
+    "f1-score": 0.98989898989899,
+    "support": 100.0
+  },
+  "Television": {
+    "precision": 0.9900990099009901,
+    "recall": 1.0,
+    "f1-score": 0.9950248756218906,
+    "support": 100.0
+  },
+  "Washing Machine": {
+    "precision": 0.98989898989899,
+    "recall": 0.98,
+    "f1-score": 0.9849246231155779,
+    "support": 100.0
+  },
+  "heat-sink": {
+    "precision": 0.9702970297029703,
+    "recall": 0.98,
+    "f1-score": 0.9751243781094527,
+    "support": 100.0
+  },
+  "light bulbs": {
+    "precision": 0.99,
+    "recall": 0.99,
+    "f1-score": 0.99,
+    "support": 100.0
+  },
+  "transistor": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1-score": 1.0,
+    "support": 100.0
+  },
+  "accuracy": 0.9811111111111112,
+  "macro avg": {
+    "precision": 0.9817796702168385,
+    "recall": 0.9811111111111112,
+    "f1-score": 0.9810952606710105,
+    "support": 1800.0
+  },
+  "weighted avg": {
+    "precision": 0.9817796702168387,
+    "recall": 0.9811111111111112,
+    "f1-score": 0.9810952606710106,
+    "support": 1800.0
+  }
+}
