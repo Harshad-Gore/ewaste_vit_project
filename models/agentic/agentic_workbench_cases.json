@@ -1,0 +1,242 @@
+[
+  {
+    "input": {
+      "component": "Battery",
+      "confidence": 0.93
+    },
+    "decision": {
+      "component": "Battery",
+      "hazard_level": "HIGH",
+      "material_profile": "lithium/cadmium/lead acid",
+      "disposal_pathway": "send to hazardous battery recycling facility",
+      "sdg_target": "SDG 12.4",
+      "compliance_flag": true,
+      "requires_human_review": false,
+      "confidence_threshold": 0.7,
+      "short_recommendation": "send to hazardous battery recycling facility",
+      "explanation": "The battery contains high\u2011risk heavy metals\u2014cadmium, lead, and lithium\u2014alongside corrosive electrolytes that can leach into soil and water. To mitigate these hazards, route the unit to a certified hazardous battery recycling facility that can safely recover metals and neutralize electrolytes, thereby preventing toxic release and aligning with SDG\u202f12.4\u2019s waste reduction targets. This pathway ensures regulatory compliance, protects public health, and supports circular economy principles.",
+      "confidence": 0.93,
+      "agent_mode": "llm_augmented_tool_agent",
+      "explanation_source": "llm",
+      "llm_provider": "groq",
+      "tool_trace": [
+        {
+          "step": "hazard_lookup",
+          "status": "completed",
+          "summary": "Battery mapped to HIGH risk with material profile lithium/cadmium/lead acid."
+        },
+        {
+          "step": "regulation_check",
+          "status": "completed",
+          "summary": "Confidence 93.00% evaluated against threshold 70.00%; human review = no."
+        },
+        {
+          "step": "disposal_recommendation",
+          "status": "completed",
+          "summary": "Recommended pathway: send to hazardous battery recycling facility. Explanation source: llm."
+        }
+      ],
+      "system_prompt_version": "v2"
+    }
+  },
+  {
+    "input": {
+      "component": "PCB",
+      "confidence": 0.81
+    },
+    "decision": {
+      "component": "PCB",
+      "hazard_level": "HIGH",
+      "material_profile": "fr4 composite with lead solder and metals",
+      "disposal_pathway": "send to certified ewaste recycler for metal recovery",
+      "sdg_target": "SDG 12.4",
+      "compliance_flag": true,
+      "requires_human_review": false,
+      "confidence_threshold": 0.7,
+      "short_recommendation": "send to certified ewaste recycler for metal recovery",
+      "explanation": "The PCB contains high\u2011level lead solder and FR\u20114 composite, making lead and other heavy metals the primary risk drivers. Send the unit to a certified e\u2011waste recycler that specializes in metal recovery to ensure lead is safely extracted and the composite is processed in compliance with SDG\u202f12.4 and local hazardous waste regulations. This pathway prevents environmental contamination, protects worker health, and supports circular economy goals.",
+      "confidence": 0.81,
+      "agent_mode": "llm_augmented_tool_agent",
+      "explanation_source": "llm",
+      "llm_provider": "groq",
+      "tool_trace": [
+        {
+          "step": "hazard_lookup",
+          "status": "completed",
+          "summary": "PCB mapped to HIGH risk with material profile fr4 composite with lead solder and metals."
+        },
+        {
+          "step": "regulation_check",
+          "status": "completed",
+          "summary": "Confidence 81.00% evaluated against threshold 70.00%; human review = no."
+        },
+        {
+          "step": "disposal_recommendation",
+          "status": "completed",
+          "summary": "Recommended pathway: send to certified ewaste recycler for metal recovery. Explanation source: llm."
+        }
+      ],
+      "system_prompt_version": "v2"
+    }
+  },
+  {
+    "input": {
+      "component": "Printer",
+      "confidence": 0.58
+    },
+    "decision": {
+      "component": "Printer",
+      "hazard_level": "MEDIUM",
+      "material_profile": "plastic shell, toner residue, pcb",
+      "disposal_pathway": "route to ewaste stream with toner-safe handling",
+      "sdg_target": "SDG 12.4",
+      "compliance_flag": true,
+      "requires_human_review": true,
+      "confidence_threshold": 0.7,
+      "short_recommendation": "route to ewaste stream with toner-safe handling",
+      "explanation": "The printer\u2019s medium\u2011hazard rating stems mainly from heavy metals in the PCB, residual toner containing carbon black and potential additives, and the plastic shell\u2019s potential for leaching phthalates. Route the unit to a certified e\u2011waste facility that offers toner\u2011safe segregation and PCB recycling; this ensures hazardous components are isolated, recovered, and disposed of per regulatory standards. Because confidence is only 58\u202f%, a manual review by a qualified e\u2011waste specialist is advised to confirm the pathway and verify compliance with SDG\u202f12.4.",
+      "confidence": 0.58,
+      "agent_mode": "llm_augmented_tool_agent",
+      "explanation_source": "llm",
+      "llm_provider": "groq",
+      "tool_trace": [
+        {
+          "step": "hazard_lookup",
+          "status": "completed",
+          "summary": "Printer mapped to MEDIUM risk with material profile plastic shell, toner residue, pcb."
+        },
+        {
+          "step": "regulation_check",
+          "status": "completed",
+          "summary": "Confidence 58.00% evaluated against threshold 70.00%; human review = yes."
+        },
+        {
+          "step": "disposal_recommendation",
+          "status": "completed",
+          "summary": "Recommended pathway: route to ewaste stream with toner-safe handling. Explanation source: llm."
+        }
+      ],
+      "system_prompt_version": "v2"
+    }
+  },
+  {
+    "input": {
+      "component": "Keyboard",
+      "confidence": 0.76
+    },
+    "decision": {
+      "component": "Keyboard",
+      "hazard_level": "LOW",
+      "material_profile": "abs plastic, membrane, copper traces",
+      "disposal_pathway": "route to plastics and small-ewaste stream",
+      "sdg_target": "SDG 12.5",
+      "compliance_flag": true,
+      "requires_human_review": false,
+      "confidence_threshold": 0.7,
+      "short_recommendation": "route to plastics and small-ewaste stream",
+      "explanation": "Keyboard components contain copper traces that can release trace heavy metals and ABS plastic that may contain phthalates, classifying the item as low\u2011hazard but still requiring segregation. Route the keyboard to the plastics and small\u2011e\u2011waste stream, where copper can be recovered and plastic recycled, minimizing environmental release. This pathway meets SDG\u202f12.4 by reducing landfill burden and enabling material recovery while ensuring compliance with e\u2011waste regulations.",
+      "confidence": 0.76,
+      "agent_mode": "llm_augmented_tool_agent",
+      "explanation_source": "llm",
+      "llm_provider": "groq",
+      "tool_trace": [
+        {
+          "step": "hazard_lookup",
+          "status": "completed",
+          "summary": "Keyboard mapped to LOW risk with material profile abs plastic, membrane, copper traces."
+        },
+        {
+          "step": "regulation_check",
+          "status": "completed",
+          "summary": "Confidence 76.00% evaluated against threshold 70.00%; human review = no."
+        },
+        {
+          "step": "disposal_recommendation",
+          "status": "completed",
+          "summary": "Recommended pathway: route to plastics and small-ewaste stream. Explanation source: llm."
+        }
+      ],
+      "system_prompt_version": "v2"
+    }
+  },
+  {
+    "input": {
+      "component": "Refrigerator",
+      "confidence": 0.67
+    },
+    "decision": {
+      "component": "Refrigerator",
+      "hazard_level": "HIGH",
+      "material_profile": "steel/copper with refrigerant gas",
+      "disposal_pathway": "recover refrigerant first, then dismantle in certified facility",
+      "sdg_target": "SDG 12.4",
+      "compliance_flag": true,
+      "requires_human_review": true,
+      "confidence_threshold": 0.7,
+      "short_recommendation": "recover refrigerant first, then dismantle in certified facility",
+      "explanation": "Refrigerator disassembly poses high\u2011risk drivers: hazardous refrigerant gas, heavy metals in steel and copper, and potential toxic insulation residues. The safest pathway is to recover the refrigerant first, then send the remaining components to a certified e\u2011waste facility, meeting SDG\u202f12.4 and local hazardous\u2011waste regulations. Because confidence is below the acceptable threshold, a manual review is recommended to verify refrigerant type and ensure compliance.",
+      "confidence": 0.67,
+      "agent_mode": "llm_augmented_tool_agent",
+      "explanation_source": "llm",
+      "llm_provider": "groq",
+      "tool_trace": [
+        {
+          "step": "hazard_lookup",
+          "status": "completed",
+          "summary": "Refrigerator mapped to HIGH risk with material profile steel/copper with refrigerant gas."
+        },
+        {
+          "step": "regulation_check",
+          "status": "completed",
+          "summary": "Confidence 67.00% evaluated against threshold 70.00%; human review = yes."
+        },
+        {
+          "step": "disposal_recommendation",
+          "status": "completed",
+          "summary": "Recommended pathway: recover refrigerant first, then dismantle in certified facility. Explanation source: llm."
+        }
+      ],
+      "system_prompt_version": "v2"
+    }
+  },
+  {
+    "input": {
+      "component": "Mobile",
+      "confidence": 0.42
+    },
+    "decision": {
+      "component": "Mobile",
+      "hazard_level": "HIGH",
+      "material_profile": "lithium battery, rare earth metals, mixed glass/plastic",
+      "disposal_pathway": "send to certified electronics recycler",
+      "sdg_target": "SDG 12.4",
+      "compliance_flag": true,
+      "requires_human_review": true,
+      "confidence_threshold": 0.7,
+      "short_recommendation": "send to certified electronics recycler",
+      "explanation": "The Mobile component\u2019s high\u2011hazard profile is driven by a lithium battery, rare\u2011earth metals, and mixed glass/plastic. It should be sent to a certified electronics recycler that specializes in hazardous battery segregation, metal recovery, and glass/plastic separation to prevent toxic release and meet SDG\u202f12.4 waste\u2011management targets. This pathway ensures controlled handling of lithium and heavy metals, reduces environmental contamination, and supports resource recovery. Because confidence is only 42\u202f%, a manual review is required before finalizing the disposal plan.",
+      "confidence": 0.42,
+      "agent_mode": "llm_augmented_tool_agent",
+      "explanation_source": "llm",
+      "llm_provider": "groq",
+      "tool_trace": [
+        {
+          "step": "hazard_lookup",
+          "status": "completed",
+          "summary": "Mobile mapped to HIGH risk with material profile lithium battery, rare earth metals, mixed glass/plastic."
+        },
+        {
+          "step": "regulation_check",
+          "status": "completed",
+          "summary": "Confidence 42.00% evaluated against threshold 70.00%; human review = yes."
+        },
+        {
+          "step": "disposal_recommendation",
+          "status": "completed",
+          "summary": "Recommended pathway: send to certified electronics recycler. Explanation source: llm."
+        }
+      ],
+      "system_prompt_version": "v2"
+    }
+  }
+]

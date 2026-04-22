@@ -1,0 +1,31 @@
+{
+  "n_clusters": 3,
+  "class_names": [
+    "Air-Conditioner",
+    "Battery",
+    "Keyboard",
+    "Laptop",
+    "Microchip-IC",
+    "Microwave",
+    "Mobile",
+    "Mouse",
+    "PCB",
+    "Passive-Component",
+    "Printer",
+    "Refrigerator",
+    "Resistor",
+    "Television",
+    "Washing Machine",
+    "heat-sink",
+    "light bulbs",
+    "transistor"
+  ],
+  "medoid_indices": [
+    7616,
+    24228,
+    16532
+  ],
+  "algorithm": "CLARA-style sampled PAM",
+  "sample_size": 1200,
+  "feature_space": "embeddings_pca.npy"
+}

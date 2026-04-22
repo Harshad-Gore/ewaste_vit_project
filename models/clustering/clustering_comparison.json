@@ -1,0 +1,36 @@
+{
+  "feature_space": "embeddings_pca.npy",
+  "kmeans": {
+    "n_clusters": 3,
+    "total_samples": 27560,
+    "silhouette_score": 0.08277879655361176,
+    "davies_bouldin_index": 4.934664381379223,
+    "calinski_harabasz_index": 1034.5625742919517,
+    "adjusted_rand_index": 0.0757409779282442,
+    "normalized_mutual_info": 0.230084274431711,
+    "cluster_sizes": {
+      "0": 5801,
+      "1": 15968,
+      "2": 5791
+    }
+  },
+  "kmedoids": {
+    "n_clusters": 3,
+    "total_samples": 27560,
+    "silhouette_score": 0.10538671910762787,
+    "davies_bouldin_index": 4.153775444120886,
+    "calinski_harabasz_index": 869.7546632716635,
+    "adjusted_rand_index": 0.03800895802767198,
+    "normalized_mutual_info": 0.21866928006301264,
+    "cluster_sizes": {
+      "0": 4536,
+      "1": 2434,
+      "2": 20590
+    },
+    "medoid_indices": [
+      7616,
+      24228,
+      16532
+    ]
+  }
+}

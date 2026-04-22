@@ -72,6 +72,7 @@ WORKSPACES = [
 	"Benchmarks",
 	"Analytics",
 	"Registry",
+	"Copilot",
 ]
 
 ICON_SVGS = {
@@ -146,6 +147,12 @@ ICON_SVGS = {
 		<path d="M7.7 9.1l2.8 5.1M16.3 8.4l-2.8 5.1M8 8h8" />
 	</svg>
 	""",
+	"chat": """
+	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+		<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6A2.5 2.5 0 0 1 16.5 15H11l-4 4v-4H7.5A2.5 2.5 0 0 1 5 12.5v-6z" />
+		<path d="M8 8h8M8 11h5" />
+	</svg>
+	""",
 	"warning": """
 	<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
 		<path d="M12 4l9 16H3L12 4z" />
@@ -192,6 +199,8 @@ def guess_icon_name(label: str) -> str:
 		return "database"
 	if any(token in text for token in {"cluster", "analytics"}):
 		return "cluster"
+	if any(token in text for token in {"chat", "copilot", "assistant", "bot"}):
+		return "chat"
 	if any(token in text for token in {"image", "scene", "gallery", "intake"}):
 		return "gallery"
 	if any(token in text for token in {"review", "triage", "trace"}):
@@ -1269,6 +1278,64 @@ def build_ann_overview_figure(ann_payload: Mapping | None) -> plt.Figure | None:
 	return fig
 
 
+def build_ann_backprop_figure(backprop_payload: Mapping | None) -> plt.Figure | None:
+	if not isinstance(backprop_payload, Mapping) or not backprop_payload:
+		return None
+
+	tracking = backprop_payload.get("gradient_tracking") if isinstance(backprop_payload.get("gradient_tracking"), Mapping) else {}
+	epochs = tracking.get("epochs") if isinstance(tracking.get("epochs"), list) else []
+	total_grad = tracking.get("total_grad_norm") if isinstance(tracking.get("total_grad_norm"), list) else []
+	first_grad = tracking.get("first_layer_grad_norm") if isinstance(tracking.get("first_layer_grad_norm"), list) else []
+	last_grad = tracking.get("last_layer_grad_norm") if isinstance(tracking.get("last_layer_grad_norm"), list) else []
+	update_norm = tracking.get("update_norm") if isinstance(tracking.get("update_norm"), list) else []
+	best_epoch = backprop_payload.get("best_epoch")
+
+	if not epochs:
+		return None
+
+	fig, axes = plt.subplots(1, 2, figsize=(14.2, 4.8))
+	if total_grad and first_grad and last_grad:
+		n = min(len(epochs), len(total_grad), len(first_grad), len(last_grad))
+		x = epochs[:n]
+		axes[0].plot(x, total_grad[:n], label="total", linewidth=2.0, color="#0ea5e9")
+		axes[0].plot(x, first_grad[:n], label="first layer", linewidth=1.8, color="#22c55e")
+		axes[0].plot(x, last_grad[:n], label="last layer", linewidth=1.8, color="#f97316")
+		if isinstance(best_epoch, int):
+			axes[0].axvline(best_epoch, linestyle="--", linewidth=1.2, color="#e11d48", alpha=0.7)
+		axes[0].set_title("Backprop Gradient Norms", fontweight="bold")
+		axes[0].set_xlabel("epoch")
+		axes[0].set_ylabel("gradient norm")
+		axes[0].grid(alpha=0.22)
+		axes[0].legend(fontsize=8)
+	else:
+		axes[0].text(0.5, 0.5, "gradient traces unavailable", ha="center", va="center")
+		axes[0].set_axis_off()
+
+	summary = backprop_payload.get("backprop_summary") if isinstance(backprop_payload.get("backprop_summary"), Mapping) else {}
+	summary_items = [
+		("best val", to_float(summary.get("best_val_loss"))),
+		("clip", to_float(summary.get("clip_grad_norm"))),
+		("peak grad", to_float(summary.get("peak_total_grad_norm"))),
+		("mean grad", to_float(summary.get("mean_total_grad_norm"))),
+	]
+	summary_items = [item for item in summary_items if item[1] is not None]
+	if summary_items:
+		labels = [item[0] for item in summary_items]
+		values = [item[1] for item in summary_items]
+		bars = axes[1].bar(labels, values, color=["#38bdf8", "#a855f7", "#f59e0b", "#34d399"][: len(labels)])
+		axes[1].set_title("Backprop Summary Metrics", fontweight="bold")
+		axes[1].grid(axis="y", alpha=0.22)
+		for bar, value in zip(bars, values):
+			axes[1].text(bar.get_x() + bar.get_width() / 2, value, f"{value:.3f}", ha="center", va="bottom", fontsize=8)
+	else:
+		axes[1].text(0.5, 0.5, "backprop summary unavailable", ha="center", va="center")
+		axes[1].set_axis_off()
+
+	fig.suptitle("ANN Backpropagation Diagnostics", fontsize=14, fontweight="bold")
+	fig.tight_layout()
+	return fig
+
+
 def build_clustering_overview_figure(clustering_payload: Mapping | None) -> plt.Figure | None:
 	if not isinstance(clustering_payload, Mapping) or not clustering_payload:
 		return None
@@ -1315,9 +1382,61 @@ def build_clustering_overview_figure(clustering_payload: Mapping | None) -> plt.
 	return fig
 
 
-def build_cluster_composition_figure(clustering_dir: Path, class_names: list[str] | None = None) -> plt.Figure | None:
+def build_clustering_comparison_figure(comparison_payload: Mapping | None) -> plt.Figure | None:
+	if not isinstance(comparison_payload, Mapping) or not comparison_payload:
+		return None
+
+	algorithms = []
+	for name in ("kmeans", "kmedoids"):
+		payload = comparison_payload.get(name)
+		if isinstance(payload, Mapping) and payload:
+			algorithms.append((name, payload))
+	if not algorithms:
+		return None
+
+	metric_specs = [
+		("silhouette_score", "Silhouette"),
+		("adjusted_rand_index", "ARI"),
+		("normalized_mutual_info", "NMI"),
+		("davies_bouldin_index", "DBI"),
+	]
+	fig, axes = plt.subplots(1, len(metric_specs), figsize=(4.1 * len(metric_specs), 4.8))
+	axes = np.atleast_1d(axes).ravel()
+	colors = {"kmeans": "#0ea5e9", "kmedoids": "#f97316"}
+
+	for ax, (metric_key, metric_label) in zip(axes, metric_specs):
+		values = []
+		labels = []
+		bar_colors = []
+		for algo_name, payload in algorithms:
+			value = to_float(payload.get(metric_key))
+			if value is None:
+				continue
+			labels.append(algo_name.upper())
+			values.append(value)
+			bar_colors.append(colors.get(algo_name, "#94a3b8"))
+		if values:
+			bars = ax.bar(labels, values, color=bar_colors)
+			for bar, value in zip(bars, values):
+				ax.text(bar.get_x() + bar.get_width() / 2, value, f"{value:.3f}", ha="center", va="bottom", fontsize=8)
+			ax.grid(axis="y", alpha=0.22)
+			ax.set_title(metric_label, fontweight="bold")
+		else:
+			ax.text(0.5, 0.5, "n/a", ha="center", va="center")
+			ax.set_axis_off()
+
+	fig.suptitle("K-Means vs K-Medoids Comparison", fontsize=14, fontweight="bold")
+	fig.tight_layout()
+	return fig
+
+
+def build_cluster_composition_figure(
+	clustering_dir: Path,
+	class_names: list[str] | None = None,
+	cluster_labels_name: str = "cluster_labels.npy",
+) -> plt.Figure | None:
 	class_labels = load_npy_array(clustering_dir / "labels.npy")
-	cluster_labels = load_npy_array(clustering_dir / "cluster_labels.npy")
+	cluster_labels = load_npy_array(clustering_dir / cluster_labels_name)
 	if class_labels is None or cluster_labels is None:
 		return None
 	if len(class_labels) != len(cluster_labels):
@@ -1358,9 +1477,13 @@ def build_cluster_composition_figure(clustering_dir: Path, class_names: list[str
 	return fig
 
 
-def build_tsne_cluster_figure(clustering_dir: Path, max_points: int = 8000) -> plt.Figure | None:
+def build_tsne_cluster_figure(
+	clustering_dir: Path,
+	max_points: int = 8000,
+	tsne_clusters_name: str = "tsne_clusters.npy",
+) -> plt.Figure | None:
 	tsne = load_npy_array(clustering_dir / "tsne_result.npy")
-	clusters = load_npy_array(clustering_dir / "tsne_clusters.npy")
+	clusters = load_npy_array(clustering_dir / tsne_clusters_name)
 	if tsne is None or clusters is None:
 		return None
 	if tsne.ndim != 2 or tsne.shape[1] < 2 or len(tsne) != len(clusters):
@@ -1732,8 +1855,12 @@ def load_supporting_metrics(project_root_str: str) -> dict:
 	return {
 		"ann_results": ann_primary or ann_legacy,
 		"ann_results_18cls": ann_primary,
+		"ann_backprop_results": load_json(project_root / "models" / "ann" / "ann_backprop_results.json") or {},
 		"clustering_metrics": load_json(project_root / "models" / "clustering" / "clustering_metrics.json") or {},
 		"clustering_results": load_json(project_root / "models" / "clustering" / "clustering_results.json") or {},
+		"kmedoids_metrics": load_json(project_root / "models" / "clustering" / "kmedoids_metrics.json") or {},
+		"kmedoids_results": load_json(project_root / "models" / "clustering" / "kmedoids_results.json") or {},
+		"clustering_comparison": load_json(project_root / "models" / "clustering" / "clustering_comparison.json") or {},
 		"competition_leaderboard": load_json(project_root / "models" / "competition" / "leaderboard.json") or {},
 		"competition_all_players": load_json(project_root / "models" / "competition" / "all_players_results.json") or {},
 		"competition_deep": load_json(project_root / "models" / "competition" / "deep_results.json") or {},
@@ -2240,6 +2367,248 @@ def build_discussion_prompt(
 	)
 
 
+def build_system_chat_context(
+	*,
+	active_arch: str,
+	class_names: list[str],
+	primary_row: pd.Series | None,
+	ann_results: Mapping | None,
+	ann_backprop_results: Mapping | None,
+	clustering_metrics: Mapping | None,
+	kmedoids_metrics: Mapping | None,
+	clustering_comparison: Mapping | None,
+	last_result: Mapping | None,
+) -> str:
+	benchmark_line = (
+		f"{active_arch} accuracy {format_pct(float(primary_row['accuracy']))} and macro-F1 {format_float(float(primary_row['macro_f1']), 4)}"
+		if primary_row is not None
+		else f"{active_arch} benchmark snapshot unavailable"
+	)
+	ann_cls = ann_results.get("classification_metrics") if isinstance(ann_results, Mapping) and isinstance(ann_results.get("classification_metrics"), Mapping) else {}
+	ann_acc = to_float(ann_cls.get("hazard_class_accuracy")) if ann_cls else to_float(ann_results.get("hazard_class_accuracy")) if isinstance(ann_results, Mapping) else None
+	ann_r2 = to_float(ann_results.get("regression_metrics", {}).get("r2")) if isinstance(ann_results, Mapping) and isinstance(ann_results.get("regression_metrics"), Mapping) else None
+	kmeans_sil = to_float(clustering_metrics.get("silhouette_score")) if isinstance(clustering_metrics, Mapping) else None
+	kmedoids_sil = to_float(kmedoids_metrics.get("silhouette_score")) if isinstance(kmedoids_metrics, Mapping) else None
+	comparison_keys = ", ".join(
+		name.upper()
+		for name in ("kmeans", "kmedoids")
+		if isinstance(clustering_comparison, Mapping) and isinstance(clustering_comparison.get(name), Mapping)
+	)
+	if not comparison_keys:
+		comparison_keys = "comparison pending"
+
+	lines = [
+		"E-Waste system scope: single-label image classification, hazard-aware routing, ANN hazard scoring, clustering analytics, research dashboard workflows, and registered disposal policies.",
+		f"Active architecture: {active_arch}.",
+		f"Known classes ({len(class_names)}): {', '.join(class_names[:8])}{' ...' if len(class_names) > 8 else ''}.",
+		f"Benchmark: {benchmark_line}.",
+		f"Hazard ANN accuracy: {format_pct(ann_acc)} | regression R2: {format_float(ann_r2)}.",
+		f"K-Means silhouette: {format_float(kmeans_sil)} | K-Medoids silhouette: {format_float(kmedoids_sil)}.",
+		f"Clustering comparison status: {comparison_keys}.",
+	]
+
+	if isinstance(ann_backprop_results, Mapping) and ann_backprop_results:
+		summary = ann_backprop_results.get("backprop_summary") if isinstance(ann_backprop_results.get("backprop_summary"), Mapping) else {}
+		lines.append(
+			f"ANN backprop tracking: best epoch {summary.get('best_epoch', 'n/a')} | peak grad norm {format_float(to_float(summary.get('peak_total_grad_norm')))}."
+		)
+
+	if isinstance(last_result, Mapping) and last_result:
+		prediction = last_result.get("prediction", {})
+		decision = last_result.get("decision", {})
+		if isinstance(prediction, Mapping) and isinstance(decision, Mapping):
+			lines.append(
+				f"Current inference context: predicted {prediction.get('class_name', 'n/a')} at {format_pct(to_float(prediction.get('confidence')))} with hazard {decision.get('hazard_level', 'UNKNOWN')}."
+			)
+
+	lines.append(
+		"Stay inside project scope. If the user asks about unrelated topics, politely refuse and redirect to system-related questions."
+	)
+	return "\n".join(lines)
+
+
+def build_local_chatbot_reply(
+	question: str,
+	*,
+	active_arch: str,
+	primary_row: pd.Series | None,
+	ann_results: Mapping | None,
+	ann_backprop_results: Mapping | None,
+	clustering_metrics: Mapping | None,
+	kmedoids_metrics: Mapping | None,
+	clustering_comparison: Mapping | None,
+	last_result: Mapping | None,
+) -> str:
+	q = question.lower()
+
+	if any(token in q for token in {"weather", "movie", "song", "sports", "news", "joke", "travel"}):
+		return "I’m scoped only to this e-waste system: model behavior, hazard routing, ANN, clustering, dashboard workflow, and the latest inference context."
+
+	if any(token in q for token in {"last result", "last inference", "prediction", "confidence", "uploaded image"}):
+		if isinstance(last_result, Mapping) and last_result:
+			prediction = last_result.get("prediction", {})
+			decision = last_result.get("decision", {})
+			if isinstance(prediction, Mapping):
+				return (
+					f"The latest inference predicted `{prediction.get('class_name', 'n/a')}` at "
+					f"{format_pct(to_float(prediction.get('confidence')))}. The policy layer mapped it to "
+					f"`{decision.get('hazard_level', 'UNKNOWN')}` risk and recommends `{decision.get('short_recommendation', 'manual review')}`."
+				)
+		return "There is no stored inference in session yet. Run an image through the Operations view first."
+
+	if any(token in q for token in {"best model", "benchmark", "accuracy", "f1"}):
+		return (
+			f"The active benchmark model is `{active_arch}`. Its current primary benchmark snapshot is "
+			f"accuracy {format_pct(float(primary_row['accuracy'])) if primary_row is not None else 'n/a'} "
+			f"and macro-F1 {format_float(float(primary_row['macro_f1']), 4) if primary_row is not None else 'n/a'}."
+		)
+
+	if any(token in q for token in {"ann", "hazard model", "backprop", "gradient"}):
+		ann_cls = ann_results.get("classification_metrics") if isinstance(ann_results, Mapping) and isinstance(ann_results.get("classification_metrics"), Mapping) else {}
+		ann_acc = to_float(ann_cls.get("hazard_class_accuracy")) if ann_cls else to_float(ann_results.get("hazard_class_accuracy")) if isinstance(ann_results, Mapping) else None
+		ann_r2 = to_float(ann_results.get("regression_metrics", {}).get("r2")) if isinstance(ann_results, Mapping) and isinstance(ann_results.get("regression_metrics"), Mapping) else None
+		if isinstance(ann_backprop_results, Mapping) and ann_backprop_results:
+			summary = ann_backprop_results.get("backprop_summary") if isinstance(ann_backprop_results.get("backprop_summary"), Mapping) else {}
+			return (
+				f"The hazard ANN currently reports class accuracy {format_pct(ann_acc)} and regression R2 {format_float(ann_r2)}. "
+				f"The supplementary backprop notebook tracks gradient norms, with best epoch `{summary.get('best_epoch', 'n/a')}` "
+				f"and peak total gradient norm {format_float(to_float(summary.get('peak_total_grad_norm')))}."
+			)
+		return (
+			f"The hazard ANN currently reports class accuracy {format_pct(ann_acc)} and regression R2 {format_float(ann_r2)}. "
+			"Backprop diagnostics will appear after running the supplementary ANN notebook."
+		)
+
+	if any(token in q for token in {"cluster", "clustering", "kmeans", "k-means", "kmedoid", "medoid"}):
+		kmeans_sil = to_float(clustering_metrics.get("silhouette_score")) if isinstance(clustering_metrics, Mapping) else None
+		kmedoids_sil = to_float(kmedoids_metrics.get("silhouette_score")) if isinstance(kmedoids_metrics, Mapping) else None
+		if isinstance(clustering_comparison, Mapping) and clustering_comparison:
+			return (
+				f"The dashboard compares K-Means and K-Medoids on the saved embedding space. "
+				f"K-Means silhouette is {format_float(kmeans_sil)} and K-Medoids silhouette is {format_float(kmedoids_sil)}. "
+				"Use the comparison panel in Analytics to inspect algorithm-level quality metrics and the t-SNE cluster view."
+			)
+		return (
+			f"The current production clustering artifact is K-Means with silhouette {format_float(kmeans_sil)}. "
+			"K-Medoids artifacts will become visible after running the supplementary clustering notebook."
+		)
+
+	if any(token in q for token in {"hazard", "battery", "pcb", "printer", "disposal", "route"}):
+		for component in HAZARD_MAP:
+			if component.lower() in q:
+				return (
+					f"`{component}` is mapped to `{HAZARD_MAP[component]}` risk. "
+					f"Material profile: {MATERIAL_MAP[component]}. "
+					f"Recommended routing: {DISPOSAL_MAP[component]}."
+				)
+		return "Ask about a registered component name like Battery, PCB, Mobile, Printer, or Refrigerator and I can return its hazard level and routing policy."
+
+	return (
+		"I can help with this project’s classifier workflow, hazard policy engine, ANN hazard model, "
+		"K-Means/K-Medoids clustering, benchmark interpretation, dashboard usage, and the current inference result."
+	)
+
+
+def answer_system_copilot(
+	question: str,
+	*,
+	context: str,
+	active_arch: str,
+	primary_row: pd.Series | None,
+	ann_results: Mapping | None,
+	ann_backprop_results: Mapping | None,
+	clustering_metrics: Mapping | None,
+	kmedoids_metrics: Mapping | None,
+	clustering_comparison: Mapping | None,
+	last_result: Mapping | None,
+) -> str:
+	if os.getenv("GROQ_API_KEY"):
+		system_prompt = (
+			"You are the E-Waste System Copilot for a research dashboard. "
+			"Answer only about this specific project: classifier workflow, hazard routing, ANN hazard modeling, "
+			"clustering analytics, dashboard interpretation, saved artifacts, and the user’s current inference result. "
+			"If the question is outside this scope, refuse briefly and redirect to project-related topics. "
+			"Be concise, factual, and avoid making up metrics that are not in the provided context.\n\n"
+			f"System context:\n{context}"
+		)
+		return call_groq_text(prompt=question, system_prompt=system_prompt)
+
+	return build_local_chatbot_reply(
+		question,
+		active_arch=active_arch,
+		primary_row=primary_row,
+		ann_results=ann_results,
+		ann_backprop_results=ann_backprop_results,
+		clustering_metrics=clustering_metrics,
+		kmedoids_metrics=kmedoids_metrics,
+		clustering_comparison=clustering_comparison,
+		last_result=last_result,
+	)
+
+
+def render_system_copilot(
+	*,
+	input_key: str,
+	active_arch: str,
+	class_names: list[str],
+	primary_row: pd.Series | None,
+	ann_results: Mapping | None,
+	ann_backprop_results: Mapping | None,
+	clustering_metrics: Mapping | None,
+	kmedoids_metrics: Mapping | None,
+	clustering_comparison: Mapping | None,
+	last_result: Mapping | None,
+) -> None:
+	st.caption("Ask about this system only: benchmark interpretation, hazard routing, ANN analytics, clustering comparison, or the latest inference result.")
+	copilot_context = build_system_chat_context(
+		active_arch=active_arch,
+		class_names=class_names,
+		primary_row=primary_row,
+		ann_results=ann_results,
+		ann_backprop_results=ann_backprop_results,
+		clustering_metrics=clustering_metrics,
+		kmedoids_metrics=kmedoids_metrics,
+		clustering_comparison=clustering_comparison,
+		last_result=last_result,
+	)
+	if "copilot_messages" not in st.session_state:
+		st.session_state["copilot_messages"] = [
+			{
+				"role": "assistant",
+				"content": "I can explain this project’s workflow, benchmark results, hazard policies, ANN backprop diagnostics, clustering comparison, and the latest inference result.",
+			}
+		]
+
+	for message in st.session_state["copilot_messages"]:
+		with st.chat_message(message["role"]):
+			st.markdown(message["content"])
+
+	prompt = st.chat_input("Ask the system copilot about this project", key=input_key)
+	if prompt:
+		st.session_state["copilot_messages"].append({"role": "user", "content": prompt})
+		with st.chat_message("user"):
+			st.markdown(prompt)
+		with st.chat_message("assistant"):
+			with st.spinner("Thinking..."):
+				try:
+					reply = answer_system_copilot(
+						prompt,
+						context=copilot_context,
+						active_arch=active_arch,
+						primary_row=primary_row,
+						ann_results=ann_results,
+						ann_backprop_results=ann_backprop_results,
+						clustering_metrics=clustering_metrics,
+						kmedoids_metrics=kmedoids_metrics,
+						clustering_comparison=clustering_comparison,
+						last_result=last_result,
+					)
+				except Exception as exc:
+					reply = f"Copilot could not answer the question: {exc}"
+			st.markdown(reply)
+		st.session_state["copilot_messages"].append({"role": "assistant", "content": reply})
+
+
 def _is_streamlit_runtime_active() -> bool:
 	try:
 		from streamlit.runtime.scriptrunner import get_script_run_ctx
@@ -2315,8 +2684,12 @@ def main() -> None:
 
 	ann_results = supporting["ann_results"]
 	ann_results_18cls = supporting["ann_results_18cls"]
+	ann_backprop_results = supporting["ann_backprop_results"]
 	clustering_metrics = supporting["clustering_metrics"]
 	clustering_results = supporting["clustering_results"]
+	kmedoids_metrics = supporting["kmedoids_metrics"]
+	kmedoids_results = supporting["kmedoids_results"]
+	clustering_comparison = supporting["clustering_comparison"]
 	competition_leaderboard = supporting["competition_leaderboard"]
 	competition_all_players = supporting["competition_all_players"]
 	per_class_f1_scores = supporting["per_class_f1_scores"]
@@ -2756,28 +3129,44 @@ def main() -> None:
 		render_section_intro(
 			"Analytics",
 			"Supporting analytical outputs",
-			"These panels derive ANN and clustering insights directly from the current models artifacts with chart-first views.",
+			"These panels derive ANN and clustering insights directly from the current models artifacts with chart-first views, including supplementary backpropagation and K-Means vs K-Medoids analysis when those notebooks have been executed.",
 			icon="cluster",
 		)
 		a_top = st.columns(2, gap="large")
 		a_bottom = st.columns(2, gap="large")
+		kmeans_silhouette = to_float(clustering_metrics.get("silhouette_score")) if isinstance(clustering_metrics, Mapping) else None
+		kmedoids_silhouette = to_float(kmedoids_metrics.get("silhouette_score")) if isinstance(kmedoids_metrics, Mapping) else None
 		with a_top[0]:
 			render_metric_tile("Hazard class accuracy", format_pct(ann_hazard_accuracy), "18-class ANN hazard snapshot", "success", icon="shield")
 		with a_top[1]:
 			regression_r2 = to_float(ann_results.get("regression_metrics", {}).get("r2")) if isinstance(ann_results, Mapping) else None
 			render_metric_tile("Regression R2", format_float(regression_r2), "hazard severity regression", "neutral", icon="chart")
 		with a_bottom[0]:
-			render_metric_tile("Silhouette", format_float(to_float(clustering_metrics.get("silhouette_score")) if isinstance(clustering_metrics, Mapping) else None), "cluster separation score", "warning", icon="cluster")
+			render_metric_tile("K-Means silhouette", format_float(kmeans_silhouette), "baseline cluster separation score", "warning", icon="cluster")
 		with a_bottom[1]:
-			render_metric_tile("NMI", format_float(to_float(clustering_metrics.get("normalized_mutual_info")) if isinstance(clustering_metrics, Mapping) else None), "alignment with known labels", "neutral", icon="spark")
+			render_metric_tile(
+				"K-Medoids silhouette" if kmedoids_silhouette is not None else "NMI",
+				format_float(kmedoids_silhouette) if kmedoids_silhouette is not None else format_float(to_float(clustering_metrics.get("normalized_mutual_info")) if isinstance(clustering_metrics, Mapping) else None),
+				"medoid-based cluster separation" if kmedoids_silhouette is not None else "alignment with known labels",
+				"neutral",
+				icon="spark",
+			)
 
-		analytics_tabs = st.tabs(["Hazard ANN", "Clustering", "Competition"])
+		analytics_tabs = st.tabs(["Hazard ANN", "Clustering", "Competition", "System Copilot"])
 		with analytics_tabs[0]:
 			ann_fig = build_ann_overview_figure(ann_results_18cls or ann_results)
 			if ann_fig is not None:
 				st.pyplot(ann_fig, use_container_width=True)
 			else:
 				st.info("ANN insights are unavailable because ann_results_18cls.json could not be parsed.")
+			backprop_fig = build_ann_backprop_figure(ann_backprop_results)
+			if backprop_fig is not None:
+				st.pyplot(backprop_fig, use_container_width=True)
+				backprop_summary = ann_backprop_results.get("backprop_summary") if isinstance(ann_backprop_results.get("backprop_summary"), Mapping) else {}
+				if backprop_summary:
+					st.dataframe(pd.DataFrame([backprop_summary]), width="stretch", hide_index=True)
+			else:
+				st.info("Run the supplementary ANN backpropagation notebook to surface gradient-flow diagnostics here.")
 		with analytics_tabs[1]:
 			cluster_overview_fig = build_clustering_overview_figure(clustering_metrics)
 			if cluster_overview_fig is not None:
@@ -2785,18 +3174,37 @@ def main() -> None:
 			else:
 				st.info("Clustering metrics payload unavailable.")
 
-			class_names_from_clustering = clustering_results.get("class_names") if isinstance(clustering_results.get("class_names"), list) else class_names
-			composition_fig = build_cluster_composition_figure(clustering_dir, class_names=class_names_from_clustering)
+			cluster_compare_fig = build_clustering_comparison_figure(clustering_comparison)
+			if cluster_compare_fig is not None:
+				st.pyplot(cluster_compare_fig, use_container_width=True)
+			else:
+				st.info("Run the supplementary K-Means vs K-Medoids notebook to populate the algorithm comparison view.")
+
+			cluster_algo = st.selectbox(
+				"Cluster algorithm view",
+				options=["K-Means", "K-Medoids"] if kmedoids_metrics else ["K-Means"],
+				index=0,
+				key="cluster_algo_view",
+			)
+			cluster_labels_name = "kmedoids_cluster_labels.npy" if cluster_algo == "K-Medoids" else "cluster_labels.npy"
+			tsne_clusters_name = "kmedoids_tsne_clusters.npy" if cluster_algo == "K-Medoids" else "tsne_clusters.npy"
+			active_clustering_results = kmedoids_results if cluster_algo == "K-Medoids" else clustering_results
+			class_names_from_clustering = active_clustering_results.get("class_names") if isinstance(active_clustering_results.get("class_names"), list) else class_names
+			composition_fig = build_cluster_composition_figure(
+				clustering_dir,
+				class_names=class_names_from_clustering,
+				cluster_labels_name=cluster_labels_name,
+			)
 			if composition_fig is not None:
 				st.pyplot(composition_fig, use_container_width=True)
 			else:
-				st.info("Class-vs-cluster composition could not be generated from labels.npy and cluster_labels.npy.")
+				st.info(f"Class-vs-cluster composition could not be generated for {cluster_algo}.")
 
-			tsne_fig = build_tsne_cluster_figure(clustering_dir)
+			tsne_fig = build_tsne_cluster_figure(clustering_dir, tsne_clusters_name=tsne_clusters_name)
 			if tsne_fig is not None:
 				st.pyplot(tsne_fig, use_container_width=True)
 			else:
-				st.info("t-SNE scatter could not be generated from tsne_result.npy and tsne_clusters.npy.")
+				st.info(f"t-SNE scatter could not be generated for {cluster_algo}.")
 		with analytics_tabs[2]:
 			ranking = competition_leaderboard.get("ranking") if isinstance(competition_leaderboard, Mapping) else None
 			if isinstance(ranking, list) and ranking:
@@ -2805,6 +3213,19 @@ def main() -> None:
 				st.bar_chart(comp_frame.set_index("model")[["accuracy", "macro_f1"]], width="stretch")
 			else:
 				st.info("Competition leaderboard is unavailable.")
+		with analytics_tabs[3]:
+			render_system_copilot(
+				input_key="analytics_copilot_input",
+				active_arch=active_arch,
+				class_names=class_names,
+				primary_row=primary_benchmark_row,
+				ann_results=ann_results_18cls or ann_results,
+				ann_backprop_results=ann_backprop_results,
+				clustering_metrics=clustering_metrics,
+				kmedoids_metrics=kmedoids_metrics,
+				clustering_comparison=clustering_comparison,
+				last_result=st.session_state.get("last_result"),
+			)
 
 		st.markdown("#### Discussion Drafting")
 		if st.button("Draft discussion paragraph", key="generate_discussion_paragraph"):
@@ -2824,6 +3245,26 @@ def main() -> None:
 				st.error(f"Groq generation failed: {exc}")
 		if st.session_state.get("llm_discussion_summary"):
 			st.write(st.session_state["llm_discussion_summary"])
+
+	if workspace == "Copilot":
+		render_section_intro(
+			"Copilot",
+			"System-only research assistant",
+			"This assistant is constrained to the current project. Use it to explain the dashboard workflow, interpret benchmark records, compare K-Means and K-Medoids, summarize ANN backprop diagnostics, or answer questions about the latest inference result.",
+			icon="chat",
+		)
+		render_system_copilot(
+			input_key="copilot_workspace_input",
+			active_arch=active_arch,
+			class_names=class_names,
+			primary_row=primary_benchmark_row,
+			ann_results=ann_results_18cls or ann_results,
+			ann_backprop_results=ann_backprop_results,
+			clustering_metrics=clustering_metrics,
+			kmedoids_metrics=kmedoids_metrics,
+			clustering_comparison=clustering_comparison,
+			last_result=st.session_state.get("last_result"),
+		)
 
 	if workspace == "Registry":
 		render_section_intro(
