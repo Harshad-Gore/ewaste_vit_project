@@ -8,14 +8,20 @@ import json
 import os
 import random
 import sys
+import tempfile
 import time
 from textwrap import dedent
 from urllib import request as urllib_request
 
+try:
+	import cv2
+except Exception:  # pragma: no cover - optional runtime dependency
+	cv2 = None
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageColor, ImageDraw
 import seaborn as sns
 import streamlit as st
 import torch
@@ -49,8 +55,126 @@ SUPPORTED_ARCHES = [
 ]
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".mpeg", ".mpg", ".webm"}
 
 EVAL_TRANSFORM = build_eval_transform(224)
+
+COCO_INSTANCE_CATEGORIES = [
+	"__background__",
+	"person",
+	"bicycle",
+	"car",
+	"motorcycle",
+	"airplane",
+	"bus",
+	"train",
+	"truck",
+	"boat",
+	"traffic light",
+	"fire hydrant",
+	"N/A",
+	"stop sign",
+	"parking meter",
+	"bench",
+	"bird",
+	"cat",
+	"dog",
+	"horse",
+	"sheep",
+	"cow",
+	"elephant",
+	"bear",
+	"zebra",
+	"giraffe",
+	"N/A",
+	"backpack",
+	"umbrella",
+	"N/A",
+	"N/A",
+	"handbag",
+	"tie",
+	"suitcase",
+	"frisbee",
+	"skis",
+	"snowboard",
+	"sports ball",
+	"kite",
+	"baseball bat",
+	"baseball glove",
+	"skateboard",
+	"surfboard",
+	"tennis racket",
+	"bottle",
+	"N/A",
+	"wine glass",
+	"cup",
+	"fork",
+	"knife",
+	"spoon",
+	"bowl",
+	"banana",
+	"apple",
+	"sandwich",
+	"orange",
+	"broccoli",
+	"carrot",
+	"hot dog",
+	"pizza",
+	"donut",
+	"cake",
+	"chair",
+	"couch",
+	"potted plant",
+	"bed",
+	"N/A",
+	"dining table",
+	"N/A",
+	"N/A",
+	"toilet",
+	"N/A",
+	"tv",
+	"laptop",
+	"mouse",
+	"remote",
+	"keyboard",
+	"cell phone",
+	"microwave",
+	"oven",
+	"toaster",
+	"sink",
+	"refrigerator",
+	"N/A",
+	"book",
+	"clock",
+	"vase",
+	"scissors",
+	"teddy bear",
+	"hair drier",
+	"toothbrush",
+]
+
+DETECTOR_PRIORITY_LABELS = {
+	"tv",
+	"laptop",
+	"mouse",
+	"keyboard",
+	"cell phone",
+	"microwave",
+	"refrigerator",
+	"remote",
+	"clock",
+}
+
+DETECTOR_EXCLUDED_LABELS = {
+	"person",
+}
+
+HAZARD_RANK = {
+	"UNKNOWN": 0,
+	"LOW": 1,
+	"MEDIUM": 2,
+	"HIGH": 3,
+}
 
 HAZARD_COLOR = {
 	"HIGH": "#f97316",
@@ -1870,6 +1994,533 @@ def load_supporting_metrics(project_root_str: str) -> dict:
 	}
 
 
+def resolve_detector_label(categories: list[str], label_idx: int) -> str:
+	has_background_slot = bool(categories) and str(categories[0]).strip() in {"__background__", "background", "N/A"}
+	candidate_order = (label_idx, label_idx - 1) if has_background_slot else (label_idx - 1, label_idx)
+	for candidate in candidate_order:
+		if 0 <= candidate < len(categories):
+			label = str(categories[candidate]).strip()
+			if label and label not in {"__background__", "N/A"}:
+				return label
+	return f"class_{label_idx}"
+
+
+@st.cache_resource(show_spinner=False)
+def load_detection_model(model_key: str, device_type: str) -> dict:
+	try:
+		from torchvision.models import detection as detection_models
+	except Exception as exc:  # pragma: no cover - defensive import path
+		raise RuntimeError("torchvision detection models are unavailable in this environment.") from exc
+
+	device = torch.device(device_type)
+	if model_key != "fasterrcnn_mobilenet_v3_large_320_fpn":
+		raise ValueError(f"unsupported detector: {model_key}")
+
+	factory = getattr(detection_models, model_key, None)
+	if factory is None:
+		raise RuntimeError(
+			"fasterrcnn_mobilenet_v3_large_320_fpn is not available in the installed torchvision build."
+		)
+
+	weights_enum = getattr(detection_models, "FasterRCNN_MobileNet_V3_Large_320_FPN_Weights", None)
+	categories = list(COCO_INSTANCE_CATEGORIES)
+
+	try:
+		if weights_enum is not None:
+			weights = weights_enum.DEFAULT
+			model = factory(weights=weights)
+			meta = getattr(weights, "meta", {})
+			weight_categories = meta.get("categories")
+			if isinstance(weight_categories, list) and weight_categories:
+				categories = [str(item) for item in weight_categories]
+		else:  # pragma: no cover - compatibility path for older torchvision
+			model = factory(pretrained=True)
+	except Exception as exc:
+		raise RuntimeError(
+			"Could not load pretrained detector weights. On first use, torchvision may need internet access "
+			"to download Faster R-CNN MobileNetV3 weights into the local torch cache."
+		) from exc
+
+	model.to(device)
+	model.eval()
+	return {
+		"model": model,
+		"device": device,
+		"name": "Faster R-CNN MobileNetV3 320 FPN",
+		"categories": categories,
+	}
+
+
+def box_iou(box_a: list[int], box_b: list[int]) -> float:
+	ax0, ay0, ax1, ay1 = box_a
+	bx0, by0, bx1, by1 = box_b
+	inter_x0 = max(ax0, bx0)
+	inter_y0 = max(ay0, by0)
+	inter_x1 = min(ax1, bx1)
+	inter_y1 = min(ay1, by1)
+	if inter_x1 <= inter_x0 or inter_y1 <= inter_y0:
+		return 0.0
+	inter_area = float((inter_x1 - inter_x0) * (inter_y1 - inter_y0))
+	area_a = float(max(ax1 - ax0, 0) * max(ay1 - ay0, 0))
+	area_b = float(max(bx1 - bx0, 0) * max(by1 - by0, 0))
+	union = max(area_a + area_b - inter_area, 1e-6)
+	return inter_area / union
+
+
+def expand_box(box: list[int], image_size: tuple[int, int], pad_ratio: float = 0.08) -> list[int]:
+	width, height = image_size
+	x0, y0, x1, y1 = box
+	box_width = max(x1 - x0, 1)
+	box_height = max(y1 - y0, 1)
+	pad_x = int(round(box_width * pad_ratio))
+	pad_y = int(round(box_height * pad_ratio))
+	return [
+		max(0, x0 - pad_x),
+		max(0, y0 - pad_y),
+		min(width, x1 + pad_x),
+		min(height, y1 + pad_y),
+	]
+
+
+@torch.inference_mode()
+def run_object_detector(
+	detector_payload: Mapping,
+	image: Image.Image,
+	score_threshold: float,
+	max_objects: int,
+	min_area_fraction: float,
+	relevant_only: bool,
+) -> list[dict]:
+	model = detector_payload["model"]
+	device = detector_payload["device"]
+	categories = detector_payload.get("categories", COCO_INSTANCE_CATEGORIES)
+
+	rgb_image = image.convert("RGB")
+	width, height = rgb_image.size
+	input_tensor = transforms.functional.to_tensor(rgb_image).to(device)
+	outputs = model([input_tensor])[0]
+
+	boxes = outputs.get("boxes")
+	labels = outputs.get("labels")
+	scores = outputs.get("scores")
+	if boxes is None or labels is None or scores is None:
+		return []
+
+	detections: list[dict] = []
+	for box_tensor, label_tensor, score_tensor in zip(
+		boxes.detach().cpu(),
+		labels.detach().cpu(),
+		scores.detach().cpu(),
+	):
+		score = float(score_tensor.item())
+		if score < score_threshold:
+			break
+
+		label_idx = int(label_tensor.item())
+		detector_label = resolve_detector_label(list(categories), label_idx)
+		label_key = detector_label.lower()
+		if label_key in {"n/a", "__background__"} or label_key in DETECTOR_EXCLUDED_LABELS:
+			continue
+		if relevant_only and label_key not in DETECTOR_PRIORITY_LABELS:
+			continue
+
+		x0, y0, x1, y1 = [int(round(v)) for v in box_tensor.tolist()]
+		x0 = max(0, min(x0, width - 1))
+		y0 = max(0, min(y0, height - 1))
+		x1 = max(x0 + 1, min(x1, width))
+		y1 = max(y0 + 1, min(y1, height))
+		area_fraction = float(((x1 - x0) * (y1 - y0)) / max(width * height, 1))
+		if area_fraction < min_area_fraction:
+			continue
+
+		candidate = {
+			"box": [x0, y0, x1, y1],
+			"detector_label": detector_label,
+			"detector_score": score,
+			"area_fraction": area_fraction,
+		}
+		if any(box_iou(candidate["box"], existing["box"]) >= 0.75 for existing in detections):
+			continue
+
+		detections.append(candidate)
+		if len(detections) >= max_objects:
+			break
+
+	return detections
+
+
+def summarize_detected_components(objects: list[dict]) -> list[dict]:
+	component_map: dict[str, dict] = {}
+	for obj in objects:
+		component = str(obj["prediction"]["class_name"])
+		row = component_map.setdefault(
+			component,
+			{
+				"component": component,
+				"count": 0,
+				"hazard_level": obj["hazard_level"],
+				"avg_classifier_confidence": 0.0,
+				"avg_detector_score": 0.0,
+				"peak_classifier_confidence": 0.0,
+				"requires_review_count": 0,
+				"detector_labels": set(),
+			},
+		)
+		row["count"] += 1
+		row["avg_classifier_confidence"] += float(obj["prediction"]["confidence"])
+		row["avg_detector_score"] += float(obj["detector_score"])
+		row["peak_classifier_confidence"] = max(
+			float(row["peak_classifier_confidence"]),
+			float(obj["prediction"]["confidence"]),
+		)
+		row["requires_review_count"] += int(bool(obj["needs_review"]))
+		row["detector_labels"].add(str(obj["detector_label"]))
+		if HAZARD_RANK.get(obj["hazard_level"], 0) > HAZARD_RANK.get(row["hazard_level"], 0):
+			row["hazard_level"] = obj["hazard_level"]
+
+	rows: list[dict] = []
+	for row in component_map.values():
+		count = max(int(row["count"]), 1)
+		row["avg_classifier_confidence"] = float(row["avg_classifier_confidence"] / count)
+		row["avg_detector_score"] = float(row["avg_detector_score"] / count)
+		row["detector_labels"] = ", ".join(sorted(row["detector_labels"]))
+		rows.append(row)
+
+	return sorted(
+		rows,
+		key=lambda item: (
+			int(item["count"]),
+			float(item["peak_classifier_confidence"]),
+			HAZARD_RANK.get(str(item["hazard_level"]), 0),
+		),
+		reverse=True,
+	)
+
+
+def build_aggregate_detection_result(
+	*,
+	analysis_kind: str,
+	workflow_label: str,
+	detector_name: str,
+	detection_scope: str,
+	objects: list[dict],
+	confidence_threshold: float,
+	fallback_to_all: bool,
+	frame_count: int | None = None,
+	sample_every_seconds: float | None = None,
+) -> dict:
+	component_rows = summarize_detected_components(objects)
+	hazard_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+	for obj in objects:
+		hazard_counts[obj["hazard_level"]] = hazard_counts.get(obj["hazard_level"], 0) + 1
+
+	if not objects:
+		detail = (
+			f"{detector_name} did not return object proposals above the configured threshold for this {workflow_label}. "
+			"That means the detector missed the scene or the threshold is too strict. Lower the detector threshold "
+			"or switch detector scope to all proposals before relying on the report."
+		)
+		return {
+			"analysis_kind": analysis_kind,
+			"workflow_label": workflow_label,
+			"detector_name": detector_name,
+			"detection_scope": detection_scope,
+			"fallback_to_all": fallback_to_all,
+			"object_count": 0,
+			"components": [],
+			"objects": [],
+			"hazard_counts": hazard_counts,
+			"prediction": {
+				"class_name": "No objects detected",
+				"confidence": 0.0,
+				"top_predictions": [],
+			},
+			"diagnostics": {
+				"tone": "warning",
+				"headline": "Detector found no actionable objects",
+				"detail": detail,
+				"needs_review": True,
+			},
+			"decision": {
+				"component": "cluster",
+				"hazard_level": "UNKNOWN",
+				"material_profile": "no object crops were available for component classification",
+				"disposal_pathway": "hold the belt segment for manual inspection",
+				"short_recommendation": "hold the belt segment for manual inspection",
+				"explanation": detail,
+				"sdg_target": "SDG 12.4",
+				"compliance_flag": False,
+				"requires_human_review": True,
+				"confidence_threshold": confidence_threshold,
+				"confidence": 0.0,
+				"agent_mode": analysis_kind,
+				"explanation_source": "aggregated rule-based",
+				"llm_provider": "none",
+				"tool_trace": [
+					{
+						"step": "object_detection",
+						"status": "attention",
+						"summary": "The pretrained detector did not produce retained boxes for this input.",
+					},
+					{
+						"step": "cluster_routing",
+						"status": "blocked",
+						"summary": "Because no objects were localized, final routing must be completed manually.",
+					},
+				],
+				"detected_objects": 0,
+				"unique_components": 0,
+			},
+		}
+
+	cluster_hazard = max(
+		(str(obj["hazard_level"]) for obj in objects),
+		key=lambda level: HAZARD_RANK.get(level, 0),
+	)
+	review_count = sum(int(bool(obj["needs_review"])) for obj in objects)
+	avg_detector_score = float(np.mean([float(obj["detector_score"]) for obj in objects]))
+	avg_classifier_confidence = float(np.mean([float(obj["prediction"]["confidence"]) for obj in objects]))
+	dominant_component = component_rows[0]["component"]
+	dominant_confidence = float(component_rows[0]["peak_classifier_confidence"])
+	component_preview = ", ".join(
+		f"{row['component']} x{row['count']} ({row['hazard_level']})"
+		for row in component_rows[:4]
+	)
+	if len(component_rows) > 4:
+		component_preview += ", ..."
+
+	if cluster_hazard == "HIGH":
+		pathway = (
+			"pause automated routing for this cluster, isolate the high-hazard items, and route each detected object "
+			"through certified hazardous e-waste handling"
+		)
+		tone = "danger"
+	elif cluster_hazard == "MEDIUM":
+		pathway = (
+			"separate the cluster into controlled appliance/component recovery lanes and verify each object before routing"
+		)
+		tone = "warning"
+	else:
+		pathway = "continue low-risk recovery with operator confirmation for the detected object set"
+		tone = "success" if review_count == 0 else "warning"
+
+	if review_count > 0:
+		tone = "warning" if tone != "danger" else tone
+
+	scope_line = f"Detector scope: {detection_scope}."
+	if fallback_to_all:
+		scope_line += " The workflow fell back to all COCO proposals because no e-waste-priority labels were retained."
+	if frame_count and frame_count > 1:
+		scope_line += (
+			f" This report aggregates sampled detections across {frame_count} frames and does not perform multi-object tracking,"
+			" so repeated items may appear more than once."
+		)
+
+	explanation = (
+		f"{detector_name} localized {len(objects)} object crops for {workflow_label}. "
+		f"Each crop was classified by the e-waste classifier, producing {len(component_rows)} component groupings: {component_preview}. "
+		f"Highest hazard observed: {cluster_hazard}. {review_count} object(s) remain below the {confidence_threshold:.0%} routing threshold. "
+		f"Recommended action: {pathway}. {scope_line}"
+	)
+	headline = (
+		f"{len(objects)} detected object(s) across {len(component_rows)} predicted component group(s)"
+		if analysis_kind != "video_belt_review"
+		else f"{len(objects)} object events across {frame_count or 0} sampled frame(s)"
+	)
+	detail = (
+		f"Dominant component evidence: {dominant_component} at {dominant_confidence:.2%}. "
+		f"Average detector score {avg_detector_score:.2%}; average crop-classification confidence {avg_classifier_confidence:.2%}. "
+		f"Highest hazard band present: {cluster_hazard}."
+	)
+	if sample_every_seconds is not None and frame_count and frame_count > 1:
+		detail += f" Frames were sampled every {sample_every_seconds:.2f} second(s)."
+
+	tool_trace = [
+		{
+			"step": "object_detection",
+			"status": "completed",
+			"summary": (
+				f"{detector_name} retained {len(objects)} box(es) using {detection_scope}. "
+				f"Average detector score was {avg_detector_score:.2%}."
+			),
+		},
+		{
+			"step": "crop_classification",
+			"status": "completed",
+			"summary": (
+				f"Each localized crop was classified independently. "
+				f"Average top-1 confidence was {avg_classifier_confidence:.2%}."
+			),
+		},
+		{
+			"step": "hazard_aggregation",
+			"status": "completed",
+			"summary": (
+				f"Aggregated hazard counts: HIGH {hazard_counts.get('HIGH', 0)}, "
+				f"MEDIUM {hazard_counts.get('MEDIUM', 0)}, LOW {hazard_counts.get('LOW', 0)}."
+			),
+		},
+		{
+			"step": "cluster_routing",
+			"status": "completed" if review_count == 0 else "attention",
+			"summary": explanation,
+		},
+	]
+	if frame_count and frame_count > 1:
+		tool_trace.insert(
+			0,
+			{
+				"step": "video_sampling",
+				"status": "completed",
+				"summary": (
+					f"Sampled {frame_count} frame(s) from uploaded video"
+					f"{f' every {sample_every_seconds:.2f} second(s)' if sample_every_seconds is not None else ''}."
+				),
+			},
+		)
+
+	decision = {
+		"component": dominant_component,
+		"hazard_level": cluster_hazard,
+		"material_profile": f"multi-object cluster containing {component_preview}",
+		"disposal_pathway": pathway,
+		"short_recommendation": pathway,
+		"explanation": explanation,
+		"sdg_target": "SDG 12.4" if cluster_hazard in {"HIGH", "MEDIUM", "UNKNOWN"} else "SDG 12.5",
+		"compliance_flag": True,
+		"requires_human_review": review_count > 0,
+		"confidence_threshold": confidence_threshold,
+		"confidence": dominant_confidence,
+		"agent_mode": analysis_kind,
+		"explanation_source": "aggregated rule-based",
+		"llm_provider": "none",
+		"tool_trace": tool_trace,
+		"detected_objects": len(objects),
+		"unique_components": len(component_rows),
+	}
+	if frame_count and frame_count > 1:
+		decision["sampled_frames"] = frame_count
+
+	return {
+		"analysis_kind": analysis_kind,
+		"workflow_label": workflow_label,
+		"detector_name": detector_name,
+		"detection_scope": detection_scope,
+		"fallback_to_all": fallback_to_all,
+		"object_count": len(objects),
+		"components": component_rows,
+		"objects": objects,
+		"hazard_counts": hazard_counts,
+		"prediction": {
+			"class_name": dominant_component,
+			"confidence": dominant_confidence,
+			"top_predictions": [
+				{
+					"class_name": row["component"],
+					"confidence": float(row["avg_classifier_confidence"]),
+				}
+				for row in component_rows[: min(5, len(component_rows))]
+			],
+		},
+		"diagnostics": {
+			"tone": tone,
+			"headline": headline,
+			"detail": detail,
+			"needs_review": review_count > 0,
+		},
+		"decision": decision,
+	}
+
+
+def draw_detection_overlay(image: Image.Image, objects: list[dict]) -> Image.Image:
+	canvas = image.convert("RGB").copy()
+	draw = ImageDraw.Draw(canvas)
+
+	for obj in objects:
+		box = [int(v) for v in obj["box"]]
+		hazard = str(obj.get("hazard_level", "UNKNOWN"))
+		color = ImageColor.getrgb(HAZARD_COLOR.get(hazard, HAZARD_COLOR["UNKNOWN"]))
+		label = (
+			f"{obj['object_id']} | {obj['prediction']['class_name']} | "
+			f"{obj['prediction']['confidence']:.0%} | {hazard}"
+		)
+		draw.rectangle(box, outline=color, width=4)
+		try:
+			text_box = draw.textbbox((0, 0), label)
+			text_width = int(text_box[2] - text_box[0])
+			text_height = int(text_box[3] - text_box[1])
+		except Exception:  # pragma: no cover - pillow compatibility fallback
+			text_width = max(110, len(label) * 7)
+			text_height = 16
+		text_x = box[0]
+		text_y = max(0, box[1] - text_height - 8)
+		draw.rectangle(
+			[text_x, text_y, min(canvas.width, text_x + text_width + 10), text_y + text_height + 6],
+			fill=(7, 16, 24),
+			outline=color,
+			width=2,
+		)
+		draw.text((text_x + 5, text_y + 3), label, fill=(242, 247, 255))
+
+	return canvas
+
+
+def build_detected_objects_frame(objects: list[dict]) -> pd.DataFrame:
+	rows: list[dict] = []
+	for obj in objects:
+		row = {
+			"object_id": obj["object_id"],
+			"predicted_class": obj["prediction"]["class_name"],
+			"classifier_confidence": float(obj["prediction"]["confidence"]),
+			"detector_label": obj["detector_label"],
+			"detector_score": float(obj["detector_score"]),
+			"hazard_level": obj["hazard_level"],
+			"requires_review": bool(obj["needs_review"]),
+			"recommended_route": obj["decision"]["short_recommendation"],
+		}
+		if "frame_id" in obj:
+			row["frame_id"] = obj["frame_id"]
+		if "timestamp_s" in obj:
+			row["timestamp_s"] = float(obj["timestamp_s"])
+		rows.append(row)
+	return pd.DataFrame(rows)
+
+
+def build_exportable_detection_report(report: Mapping) -> dict:
+	export = {
+		"analysis_kind": report.get("analysis_kind"),
+		"workflow_label": report.get("workflow_label"),
+		"detector_name": report.get("detector_name"),
+		"detection_scope": report.get("detection_scope"),
+		"fallback_to_all": report.get("fallback_to_all"),
+		"object_count": report.get("object_count"),
+		"components": report.get("components"),
+		"hazard_counts": report.get("hazard_counts"),
+		"prediction": report.get("prediction"),
+		"diagnostics": report.get("diagnostics"),
+		"decision": report.get("decision"),
+	}
+	objects = []
+	for obj in report.get("objects", []):
+		objects.append(
+			{
+				"object_id": obj.get("object_id"),
+				"box": obj.get("box"),
+				"detector_label": obj.get("detector_label"),
+				"detector_score": obj.get("detector_score"),
+				"prediction": obj.get("prediction"),
+				"hazard_level": obj.get("hazard_level"),
+				"requires_review": obj.get("needs_review"),
+				"frame_id": obj.get("frame_id"),
+				"timestamp_s": obj.get("timestamp_s"),
+			}
+		)
+	export["objects"] = objects
+	if isinstance(report.get("frame_summaries"), list):
+		export["frame_summaries"] = report.get("frame_summaries")
+	return export
+
+
 @st.cache_resource(show_spinner=False)
 def load_classifier(checkpoint_path: str, arch: str, class_names: tuple[str, ...], device_type: str) -> nn.Module:
 	device = torch.device(device_type)
@@ -2029,7 +2680,7 @@ def analyze_scene_tiles(
 	}
 
 
-def get_agent_decision(component: str, confidence: float, threshold: float) -> dict:
+def get_agent_decision(component: str, confidence: float, threshold: float, use_llm: bool = True) -> dict:
 	if component not in HAZARD_MAP:
 		return {
 			"component": component,
@@ -2056,7 +2707,240 @@ def get_agent_decision(component: str, confidence: float, threshold: float) -> d
 		}
 
 	agent = EwasteDecisionAgent(confidence_threshold=threshold)
+	if not use_llm:
+		agent.llm_fn = None
+		agent.llm_provider = "none"
 	return agent.run(AgentInput(component=component, confidence=confidence))
+
+
+def analyze_detected_cluster(
+	*,
+	detector_payload: Mapping,
+	classifier_model: nn.Module,
+	image: Image.Image,
+	class_names: list[str],
+	classifier_device: torch.device,
+	confidence_threshold: float,
+	detector_score_threshold: float,
+	max_objects: int,
+	min_area_fraction: float,
+	relevant_only: bool,
+	crop_padding: float = 0.08,
+) -> dict:
+	rgb_image = image.convert("RGB")
+	width, height = rgb_image.size
+
+	detections = run_object_detector(
+		detector_payload=detector_payload,
+		image=rgb_image,
+		score_threshold=detector_score_threshold,
+		max_objects=max_objects,
+		min_area_fraction=min_area_fraction,
+		relevant_only=relevant_only,
+	)
+	fallback_to_all = False
+	detection_scope = "e-waste priority COCO labels" if relevant_only else "all COCO proposals"
+	if not detections and relevant_only:
+		detections = run_object_detector(
+			detector_payload=detector_payload,
+			image=rgb_image,
+			score_threshold=detector_score_threshold,
+			max_objects=max_objects,
+			min_area_fraction=min_area_fraction,
+			relevant_only=False,
+		)
+		if detections:
+			fallback_to_all = True
+			detection_scope = "all COCO proposals fallback"
+
+	objects: list[dict] = []
+	for idx, detection in enumerate(detections, start=1):
+		crop_box = expand_box(detection["box"], (width, height), pad_ratio=crop_padding)
+		crop = rgb_image.crop(tuple(crop_box)).convert("RGB")
+		prediction = infer_image(
+			model=classifier_model,
+			image=crop,
+			class_names=class_names,
+			device=classifier_device,
+		)
+		decision = get_agent_decision(
+			prediction["class_name"],
+			float(prediction["confidence"]),
+			confidence_threshold,
+			use_llm=False,
+		)
+		objects.append(
+			{
+				"object_id": f"O{idx}",
+				"box": detection["box"],
+				"crop_box": crop_box,
+				"crop": crop,
+				"detector_label": detection["detector_label"],
+				"detector_score": float(detection["detector_score"]),
+				"area_fraction": float(detection["area_fraction"]),
+				"prediction": prediction,
+				"decision": decision,
+				"hazard_level": decision.get("hazard_level", "UNKNOWN"),
+				"needs_review": bool(decision.get("requires_human_review", True)),
+			}
+		)
+
+	report = build_aggregate_detection_result(
+		analysis_kind="detector_assisted_cluster_review",
+		workflow_label="cluster-image review",
+		detector_name=str(detector_payload.get("name", "detector")),
+		detection_scope=detection_scope,
+		objects=objects,
+		confidence_threshold=confidence_threshold,
+		fallback_to_all=fallback_to_all,
+	)
+	report["overlay_image"] = draw_detection_overlay(rgb_image, objects) if objects else rgb_image
+	return report
+
+
+def sample_video_frames(
+	video_bytes: bytes,
+	file_suffix: str,
+	sample_every_seconds: float,
+	max_frames: int,
+) -> dict:
+	if cv2 is None:
+		raise RuntimeError("opencv-python is not available, so video sampling cannot run in this environment.")
+
+	tmp_path: str | None = None
+	try:
+		with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
+			tmp_file.write(video_bytes)
+			tmp_path = tmp_file.name
+
+		capture = cv2.VideoCapture(tmp_path)
+		if not capture.isOpened():
+			raise RuntimeError("the uploaded video could not be opened")
+
+		fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
+		total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+		duration_seconds = (total_frames / fps) if fps > 0 and total_frames > 0 else None
+		frame_stride = max(1, int(round(fps * sample_every_seconds))) if fps > 0 else max(1, int(round(sample_every_seconds * 10)))
+
+		target_indices = list(range(0, max(total_frames, frame_stride * max_frames), frame_stride))[:max_frames]
+		target_lookup = set(target_indices)
+		frames: list[dict] = []
+		frame_idx = 0
+		while len(frames) < len(target_indices):
+			ok, frame = capture.read()
+			if not ok:
+				break
+			if frame_idx in target_lookup:
+				frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+				frames.append(
+					{
+						"frame_id": f"F{len(frames) + 1}",
+						"frame_index": frame_idx,
+						"timestamp_s": (frame_idx / fps) if fps > 0 else (len(frames) * sample_every_seconds),
+						"image": Image.fromarray(frame_rgb),
+					}
+				)
+			frame_idx += 1
+
+		capture.release()
+		if not frames:
+			raise RuntimeError("no frames could be sampled from the uploaded video")
+		return {
+			"frames": frames,
+			"fps": fps,
+			"total_frames": total_frames,
+			"duration_seconds": duration_seconds,
+			"sample_every_seconds": sample_every_seconds,
+		}
+	finally:
+		if tmp_path and os.path.exists(tmp_path):
+			try:
+				os.remove(tmp_path)
+			except OSError:
+				pass
+
+
+def analyze_video_belt(
+	*,
+	detector_payload: Mapping,
+	classifier_model: nn.Module,
+	video_payload: Mapping,
+	class_names: list[str],
+	classifier_device: torch.device,
+	confidence_threshold: float,
+	detector_score_threshold: float,
+	max_objects_per_frame: int,
+	min_area_fraction: float,
+	relevant_only: bool,
+	crop_padding: float = 0.08,
+) -> dict:
+	frame_reports: list[dict] = []
+	aggregated_objects: list[dict] = []
+	frame_summaries: list[dict] = []
+
+	for frame in video_payload.get("frames", []):
+		frame_report = analyze_detected_cluster(
+			detector_payload=detector_payload,
+			classifier_model=classifier_model,
+			image=frame["image"],
+			class_names=class_names,
+			classifier_device=classifier_device,
+			confidence_threshold=confidence_threshold,
+			detector_score_threshold=detector_score_threshold,
+			max_objects=max_objects_per_frame,
+			min_area_fraction=min_area_fraction,
+			relevant_only=relevant_only,
+			crop_padding=crop_padding,
+		)
+		frame_reports.append(
+			{
+				"frame_id": frame["frame_id"],
+				"frame_index": frame["frame_index"],
+				"timestamp_s": frame["timestamp_s"],
+				"overlay_image": frame_report.get("overlay_image"),
+				"report": frame_report,
+			}
+		)
+		for obj in frame_report.get("objects", []):
+			with_frame = dict(obj)
+			with_frame["frame_id"] = frame["frame_id"]
+			with_frame["timestamp_s"] = float(frame["timestamp_s"])
+			aggregated_objects.append(with_frame)
+
+		frame_decision = frame_report.get("decision", {})
+		frame_prediction = frame_report.get("prediction", {})
+		frame_summaries.append(
+			{
+				"frame_id": frame["frame_id"],
+				"frame_index": int(frame["frame_index"]),
+				"timestamp_s": float(frame["timestamp_s"]),
+				"detected_objects": int(frame_report.get("object_count", 0)),
+				"dominant_component": frame_prediction.get("class_name", "n/a"),
+				"highest_hazard": frame_decision.get("hazard_level", "UNKNOWN"),
+				"requires_review": bool(frame_decision.get("requires_human_review", True)),
+			}
+		)
+
+	report = build_aggregate_detection_result(
+		analysis_kind="video_belt_review",
+		workflow_label="video-belt review",
+		detector_name=str(detector_payload.get("name", "detector")),
+		detection_scope="e-waste priority COCO labels" if relevant_only else "all COCO proposals",
+		objects=aggregated_objects,
+		confidence_threshold=confidence_threshold,
+		fallback_to_all=False,
+		frame_count=len(frame_reports),
+		sample_every_seconds=to_float(video_payload.get("sample_every_seconds")),
+	)
+	report["frame_reports"] = frame_reports
+	report["frame_summaries"] = frame_summaries
+	report["video_meta"] = {
+		"fps": to_float(video_payload.get("fps")),
+		"total_frames": int(video_payload.get("total_frames", 0) or 0),
+		"duration_seconds": to_float(video_payload.get("duration_seconds")),
+		"sample_every_seconds": to_float(video_payload.get("sample_every_seconds")),
+	}
+	return report
 
 
 def pick_random_test_image(data_dir: Path) -> tuple[Image.Image | None, str | None]:
@@ -2276,6 +3160,619 @@ def build_operational_checklist(decision: dict, diagnostics: dict) -> list[str]:
 	return checklist
 
 
+def build_cluster_operational_checklist(report: Mapping) -> list[str]:
+	decision = report.get("decision", {}) if isinstance(report.get("decision"), Mapping) else {}
+	hazard_counts = report.get("hazard_counts", {}) if isinstance(report.get("hazard_counts"), Mapping) else {}
+	checklist = [
+		"Retain the detector overlay, per-object classification table, and aggregated routing summary for the batch audit trail.",
+		"Route objects by their individual hazard band, not just by the dominant cluster label.",
+	]
+	if hazard_counts.get("HIGH", 0):
+		checklist.append("Isolate the high-hazard detections from general throughput before downstream disposal handling.")
+	if decision.get("requires_human_review", True):
+		checklist.append("Escalate low-confidence or ambiguous detections to a human operator before releasing the cluster decision.")
+	if report.get("analysis_kind") == "video_belt_review":
+		checklist.append("Treat sampled frame detections as event counts only until object tracking is added; repeated items may appear in multiple frames.")
+	return checklist
+
+
+def render_detected_cluster_report(report: Mapping, key_prefix: str, workflow_value: str = "Detector-assisted cluster review") -> None:
+	if not isinstance(report, Mapping):
+		st.info("Run detector-assisted cluster review to populate this report.")
+		return
+
+	overlay = report.get("overlay_image")
+	decision = report.get("decision", {}) if isinstance(report.get("decision"), Mapping) else {}
+	diagnostics = report.get("diagnostics", {}) if isinstance(report.get("diagnostics"), Mapping) else {}
+	component_frame = pd.DataFrame(report.get("components", []))
+	object_frame = build_detected_objects_frame(report.get("objects", []))
+	hazard_counts = report.get("hazard_counts", {}) if isinstance(report.get("hazard_counts"), Mapping) else {}
+
+	top_left, top_right = st.columns([1.08, 0.92], gap="large")
+	with top_left:
+		if isinstance(overlay, Image.Image):
+			st.image(overlay, width="stretch")
+		else:
+			st.info("Overlay image unavailable.")
+	with top_right:
+		render_panel(
+			"Workflow",
+			workflow_value,
+			f"{report.get('detector_name', 'detector')} | scope: {report.get('detection_scope', 'n/a')}",
+			icon="cluster",
+		)
+		r1, r2 = st.columns(2, gap="small")
+		with r1:
+			render_metric_tile(
+				"Detected objects",
+				str(report.get("object_count", 0)),
+				"localized proposals retained for crop classification",
+				"neutral",
+				icon="gallery",
+			)
+		with r2:
+			render_metric_tile(
+				"Unique components",
+				str(len(report.get("components", []))),
+				"grouped after per-crop classification",
+				"neutral",
+				icon="stack",
+			)
+		r3, r4 = st.columns(2, gap="small")
+		with r3:
+			render_metric_tile(
+				"Highest hazard",
+				str(decision.get("hazard_level", "UNKNOWN")),
+				"worst-case band present in this cluster",
+				"danger" if decision.get("hazard_level") == "HIGH" else "warning",
+				icon="warning",
+			)
+		with r4:
+			render_metric_tile(
+				"Human review",
+				"Required" if decision.get("requires_human_review", True) else "Clear",
+				f"threshold {decision.get('confidence_threshold', 0.0):.0%}",
+				"warning" if decision.get("requires_human_review", True) else "success",
+				icon="review",
+			)
+		render_banner(
+			str(diagnostics.get("headline", "Cluster summary")),
+			str(diagnostics.get("detail", "No diagnostics available.")),
+			str(diagnostics.get("tone", "neutral")),
+			icon="route",
+		)
+		render_badge_row(
+			[
+				f"high hazard {hazard_counts.get('HIGH', 0)}",
+				f"medium hazard {hazard_counts.get('MEDIUM', 0)}",
+				f"low hazard {hazard_counts.get('LOW', 0)}",
+				f"fallback {'yes' if report.get('fallback_to_all') else 'no'}",
+			]
+		)
+
+	st.markdown("#### Cluster Routing Summary")
+	st.write(decision.get("explanation", "No routing summary available."))
+	render_checklist(build_cluster_operational_checklist(report))
+
+	if not component_frame.empty:
+		display_components = component_frame.copy()
+		for column in ("avg_classifier_confidence", "avg_detector_score", "peak_classifier_confidence"):
+			if column in display_components.columns:
+				display_components[column] = display_components[column].map(lambda x: f"{float(x):.2%}")
+		st.markdown("#### Component Summary")
+		st.dataframe(display_components, width="stretch", hide_index=True)
+
+	if not object_frame.empty:
+		display_objects = object_frame.copy()
+		for column in ("classifier_confidence", "detector_score"):
+			if column in display_objects.columns:
+				display_objects[column] = display_objects[column].map(lambda x: f"{float(x):.2%}")
+		if "timestamp_s" in display_objects.columns:
+			display_objects["timestamp_s"] = display_objects["timestamp_s"].map(lambda x: f"{float(x):.2f}")
+		st.markdown("#### Detected Objects")
+		st.dataframe(display_objects, width="stretch", hide_index=True)
+
+		dl1, dl2 = st.columns(2, gap="small")
+		with dl1:
+			st.download_button(
+				"Download cluster report JSON",
+				data=json.dumps(build_exportable_detection_report(report), indent=2),
+				file_name=f"{key_prefix}_cluster_report.json",
+				mime="application/json",
+				key=f"{key_prefix}_json_download",
+			)
+		with dl2:
+			st.download_button(
+				"Download object table CSV",
+				data=object_frame.to_csv(index=False),
+				file_name=f"{key_prefix}_objects.csv",
+				mime="text/csv",
+				key=f"{key_prefix}_csv_download",
+			)
+
+	if report.get("objects"):
+		st.markdown("#### Object Crop Gallery")
+		gallery_columns = st.columns(3, gap="small")
+		for idx, obj in enumerate(report["objects"]):
+			caption = (
+				f"{obj['object_id']} | {obj['prediction']['class_name']} | "
+				f"{obj['prediction']['confidence']:.1%} | {obj['hazard_level']}"
+			)
+			with gallery_columns[idx % 3]:
+				st.image(obj["crop"], caption=caption, width="stretch")
+
+
+def render_video_belt_report(report: Mapping, video_name: str | None = None) -> None:
+	if not isinstance(report, Mapping):
+		st.info("Run video belt review to generate frame-level reports.")
+		return
+
+	video_meta = report.get("video_meta", {}) if isinstance(report.get("video_meta"), Mapping) else {}
+	frame_summaries = pd.DataFrame(report.get("frame_summaries", []))
+	frame_reports = report.get("frame_reports", []) if isinstance(report.get("frame_reports"), list) else []
+
+	render_banner(
+		"Video-mode caveat",
+		"This workflow samples frames, localizes objects with a pretrained detector, classifies each crop, and aggregates the results. It does not yet track the same physical item across consecutive frames.",
+		"warning",
+		icon="warning",
+	)
+	render_detected_cluster_report(
+		report,
+		key_prefix="video_belt",
+		workflow_value=(
+			f"Sampled video belt review | {video_name or 'uploaded video'} | "
+			f"every {format_float(to_float(video_meta.get('sample_every_seconds')), 2)} s"
+		),
+	)
+
+	if not frame_summaries.empty:
+		display_frames = frame_summaries.copy()
+		display_frames["timestamp_s"] = display_frames["timestamp_s"].map(lambda x: f"{float(x):.2f}")
+		st.markdown("#### Frame Summary")
+		st.dataframe(display_frames, width="stretch", hide_index=True)
+
+	if frame_reports:
+		st.markdown("#### Sampled Frame Gallery")
+		frame_columns = st.columns(2, gap="large")
+		for idx, frame in enumerate(frame_reports):
+			caption = (
+				f"{frame['frame_id']} | t={float(frame['timestamp_s']):.2f}s | "
+				f"objects={frame['report'].get('object_count', 0)}"
+			)
+			with frame_columns[idx % 2]:
+				st.image(frame.get("overlay_image"), caption=caption, width="stretch")
+
+
+def render_single_item_operations(
+	*,
+	model: nn.Module,
+	class_names: list[str],
+	device: torch.device,
+	confidence_threshold: float,
+	enable_scene_scan: bool,
+	scene_grid: int,
+	scene_tile_floor: float,
+	data_dir: Path,
+) -> None:
+	render_section_intro(
+		"Inference",
+		"Operational inference review",
+		"Submit an image, inspect confidence distribution, and review composite-scene cues before any downstream routing decision.",
+		icon="gallery",
+	)
+	render_badge_row(["Intake", "Single-label inference", "Confidence gating", "Composite-scene review"])
+
+	left, right = st.columns([1.06, 0.94], gap="large")
+	with left:
+		uploaded = st.file_uploader(
+			"Image intake",
+			type=["jpg", "jpeg", "png", "webp"],
+			accept_multiple_files=False,
+			help="Best performance comes from a single dominant component in frame.",
+			key="single_item_upload",
+		)
+		upload_token = f"{uploaded.name}:{uploaded.size}" if uploaded is not None else None
+		a1, a2, a3 = st.columns(3)
+		with a1:
+			sample_btn = st.button("Load test image", key="single_load_sample")
+		with a2:
+			clear_btn = st.button("Clear", key="single_clear")
+		with a3:
+			run_btn = st.button("Run inference", type="primary", key="single_run")
+
+		if uploaded is not None and upload_token != st.session_state.get("last_upload_token"):
+			st.session_state["pending_image"] = Image.open(uploaded).convert("RGB")
+			st.session_state["pending_image_label"] = uploaded.name
+			st.session_state["pending_image_source"] = "upload"
+			st.session_state["last_upload_token"] = upload_token
+			st.session_state.pop("last_result", None)
+		elif sample_btn:
+			sample_image, sample_name = pick_random_test_image(data_dir)
+			st.session_state["pending_image"] = sample_image
+			st.session_state["pending_image_label"] = sample_name
+			st.session_state["pending_image_source"] = "sample"
+			st.session_state.pop("last_result", None)
+		elif clear_btn:
+			st.session_state["pending_image"] = None
+			st.session_state["pending_image_label"] = None
+			st.session_state["pending_image_source"] = None
+			st.session_state["last_upload_token"] = None
+			st.session_state.pop("last_result", None)
+
+		image: Image.Image | None = st.session_state.get("pending_image")
+		if image is not None:
+			st.image(image, width="stretch")
+			render_badge_row(
+				[
+					f"source: {st.session_state.get('pending_image_label') or 'uploaded image'}",
+					f"canvas: {image.width} x {image.height}",
+					"single-label classifier",
+				]
+			)
+		else:
+			render_panel("Intake queue", "No active image", "Load a test image or upload a sample to start an operator review cycle.", icon="gallery")
+
+	image = st.session_state.get("pending_image")
+	if image is not None and run_btn:
+		start = time.time()
+		prediction = infer_image(model=model, image=image, class_names=class_names, device=device)
+		elapsed_ms = int((time.time() - start) * 1000)
+		diagnostics = analyze_prediction(prediction, confidence_threshold)
+		decision = get_agent_decision(prediction["class_name"], prediction["confidence"], confidence_threshold)
+		scene_analysis = None
+		if enable_scene_scan:
+			scene_analysis = analyze_scene_tiles(
+				model=model,
+				image=image,
+				class_names=class_names,
+				device=device,
+				grid_size=scene_grid,
+				min_confidence=scene_tile_floor,
+			)
+		st.session_state["last_result"] = {
+			"analysis_kind": "single_item_review",
+			"prediction": prediction,
+			"decision": decision,
+			"diagnostics": diagnostics,
+			"scene_analysis": scene_analysis,
+			"elapsed_ms": elapsed_ms,
+		}
+
+	with right:
+		result = st.session_state.get("last_result")
+		if not result or result.get("analysis_kind") != "single_item_review":
+			render_panel("Inference state", "Awaiting input", "Run inference to populate confidence, hazard, and scene evidence.", icon="review")
+		else:
+			prediction = result["prediction"]
+			decision = result["decision"]
+			diagnostics = result["diagnostics"]
+			r1, r2 = st.columns(2, gap="small")
+			with r1:
+				render_panel("Predicted class", prediction["class_name"], "single-label top prediction", icon="stack")
+			with r2:
+				render_panel("Confidence", format_pct(prediction["confidence"]), "measured on this input", icon="gauge")
+			render_panel("Latency", f"{result['elapsed_ms']} ms", "single-image forward pass", icon="bolt")
+			render_badge_row(
+				[
+					f"hazard band {decision.get('hazard_level', 'UNKNOWN')}",
+					f"human review {'required' if decision.get('requires_human_review', True) else 'clear'}",
+					f"explanation {decision.get('explanation_source', 'rule-based')}",
+				]
+			)
+			render_banner(diagnostics["headline"], diagnostics["detail"], diagnostics["tone"], icon="review")
+			st.markdown("#### Top-5 Class Scores")
+			render_probability_rows(prediction["top_predictions"])
+
+	result = st.session_state.get("last_result")
+	if result and result.get("analysis_kind") == "single_item_review":
+		scene_analysis = result.get("scene_analysis")
+		st.markdown("### Composite Scene Review")
+		if enable_scene_scan and scene_analysis:
+			render_banner(
+				scene_analysis["headline"],
+				f"Tile scan uses a {scene_analysis['grid_size']}x{scene_analysis['grid_size']} grid and reports tiles above {scene_analysis['tile_floor']:.2%}. This is a review aid, not object detection.",
+				"neutral",
+				icon="cluster",
+			)
+			s1, s2 = st.columns([1.05, 0.95], gap="large")
+			with s1:
+				component_frame = pd.DataFrame(scene_analysis["components"])
+				if component_frame.empty:
+					st.info("No tile met the evidence floor. Lower the tile threshold to inspect weaker scene cues.")
+				else:
+					component_frame["peak_confidence"] = component_frame["peak_confidence"].map(lambda x: f"{x:.2%}")
+					st.dataframe(component_frame, width="stretch", hide_index=True)
+			with s2:
+				hazard_counts = scene_analysis["hazard_counts"]
+				h1, h2 = st.columns(2, gap="small")
+				with h1:
+					render_metric_tile("High-risk tiles", str(hazard_counts.get("HIGH", 0)), "tile-level hazard evidence", "danger", icon="warning")
+				with h2:
+					render_metric_tile("Medium-risk tiles", str(hazard_counts.get("MEDIUM", 0)), "tile-level hazard evidence", "warning", icon="shield")
+				render_metric_tile("Low-risk tiles", str(hazard_counts.get("LOW", 0)), "tile-level hazard evidence", "success", icon="spark")
+			tile_columns = st.columns(scene_analysis["grid_size"])
+			for idx, tile in enumerate(scene_analysis["tiles"]):
+				crop = image.crop(tuple(tile["box"]))
+				caption = f"{tile['tile_id']} | {tile['class_name']} | {tile['confidence']:.1%}"
+				with tile_columns[idx % scene_analysis["grid_size"]]:
+					st.image(crop, caption=caption, width="stretch")
+		elif enable_scene_scan:
+			st.info("Run inference to generate composite-scene evidence.")
+		else:
+			st.info("Enable composite scene scan in the sidebar to inspect mixed-object inputs.")
+
+
+def render_cluster_image_operations(
+	*,
+	classifier_model: nn.Module,
+	class_names: list[str],
+	device: torch.device,
+	confidence_threshold: float,
+	data_dir: Path,
+	detector_model_key: str,
+	detector_score_threshold: float,
+	max_objects: int,
+	min_area_fraction: float,
+	relevant_only: bool,
+	crop_padding: float,
+) -> None:
+	render_section_intro(
+		"Cluster Review",
+		"Detector-assisted cluster intake",
+		"Use a pretrained detector to localize multiple objects in one scene, classify each crop with the research model, and generate a cluster-level hazard routing report.",
+		icon="cluster",
+	)
+	render_badge_row(["Pretrained object detector", "Per-object crop classification", "Hazard aggregation", "Cluster routing report"])
+
+	left, right = st.columns([1.02, 0.98], gap="large")
+	with left:
+		uploaded = st.file_uploader(
+			"Cluster image intake",
+			type=["jpg", "jpeg", "png", "webp"],
+			accept_multiple_files=False,
+			help="Designed for mixed scenes on a conveyor or staging tray.",
+			key="cluster_image_upload",
+		)
+		upload_token = f"{uploaded.name}:{uploaded.size}" if uploaded is not None else None
+		b1, b2, b3 = st.columns(3)
+		with b1:
+			sample_btn = st.button("Load test image", key="cluster_sample")
+		with b2:
+			clear_btn = st.button("Clear", key="cluster_clear")
+		with b3:
+			run_btn = st.button("Run cluster review", type="primary", key="cluster_run")
+
+		if uploaded is not None and upload_token != st.session_state.get("cluster_last_upload_token"):
+			st.session_state["cluster_pending_image"] = Image.open(uploaded).convert("RGB")
+			st.session_state["cluster_pending_label"] = uploaded.name
+			st.session_state["cluster_last_upload_token"] = upload_token
+			st.session_state.pop("last_cluster_result", None)
+		elif sample_btn:
+			sample_image, sample_name = pick_random_test_image(data_dir)
+			st.session_state["cluster_pending_image"] = sample_image
+			st.session_state["cluster_pending_label"] = sample_name
+			st.session_state.pop("last_cluster_result", None)
+		elif clear_btn:
+			st.session_state["cluster_pending_image"] = None
+			st.session_state["cluster_pending_label"] = None
+			st.session_state["cluster_last_upload_token"] = None
+			st.session_state.pop("last_cluster_result", None)
+
+		cluster_image: Image.Image | None = st.session_state.get("cluster_pending_image")
+		if cluster_image is not None:
+			st.image(cluster_image, width="stretch")
+			render_badge_row(
+				[
+					f"source: {st.session_state.get('cluster_pending_label') or 'uploaded image'}",
+					f"canvas: {cluster_image.width} x {cluster_image.height}",
+					"multi-object review lane",
+				]
+			)
+		else:
+			render_panel("Cluster queue", "No active image", "Upload a mixed scene to run detector-assisted cluster analysis.", icon="gallery")
+
+	with right:
+		render_panel(
+			"Detector engine",
+			"Faster R-CNN MobileNetV3",
+			"Pretrained detector used only for localization. Every retained crop is then classified by the e-waste model.",
+			icon="review",
+		)
+		r1, r2 = st.columns(2, gap="small")
+		with r1:
+			render_metric_tile("Detector threshold", f"{detector_score_threshold:.0%}", "minimum box score", "neutral", icon="gauge")
+		with r2:
+			render_metric_tile("Max retained objects", str(max_objects), "post-filter detection cap", "neutral", icon="stack")
+		r3, r4 = st.columns(2, gap="small")
+		with r3:
+			render_metric_tile("Detector scope", "Priority labels" if relevant_only else "All proposals", "COCO filter mode", "neutral", icon="cluster")
+		with r4:
+			render_metric_tile("Min area", f"{min_area_fraction:.1%}", "small-box suppression", "neutral", icon="review")
+		render_banner(
+			"How this lane works",
+			"First the detector finds candidate objects, then each crop goes through the classifier, and finally the dashboard aggregates hazard counts and routing actions for the whole cluster.",
+			"neutral",
+			icon="route",
+		)
+
+	cluster_image = st.session_state.get("cluster_pending_image")
+	if cluster_image is not None and run_btn:
+		try:
+			with st.spinner("Loading pretrained detector and analyzing the cluster..."):
+				detector_payload = load_detection_model(detector_model_key, device.type)
+				start = time.time()
+				report = analyze_detected_cluster(
+					detector_payload=detector_payload,
+					classifier_model=classifier_model,
+					image=cluster_image,
+					class_names=class_names,
+					classifier_device=device,
+					confidence_threshold=confidence_threshold,
+					detector_score_threshold=detector_score_threshold,
+					max_objects=max_objects,
+					min_area_fraction=min_area_fraction,
+					relevant_only=relevant_only,
+					crop_padding=crop_padding,
+				)
+				report["elapsed_ms"] = int((time.time() - start) * 1000)
+				st.session_state["last_cluster_result"] = report
+				st.session_state["last_result"] = {
+					"analysis_kind": "cluster_image_review",
+					"prediction": report["prediction"],
+					"decision": report["decision"],
+					"diagnostics": report["diagnostics"],
+					"cluster_report": report,
+					"elapsed_ms": report["elapsed_ms"],
+				}
+		except Exception as exc:
+			st.error(f"Detector-assisted cluster review failed: {exc}")
+
+	report = st.session_state.get("last_cluster_result")
+	if report:
+		st.markdown("### Cluster Report")
+		render_detected_cluster_report(report, key_prefix="cluster_image")
+		render_panel("Processing time", f"{report.get('elapsed_ms', 'n/a')} ms", "localization + crop classification + aggregation", icon="bolt")
+	else:
+		st.info("Run cluster review to produce object localization, per-object classification, and aggregated routing output.")
+
+
+def render_video_belt_operations(
+	*,
+	classifier_model: nn.Module,
+	class_names: list[str],
+	device: torch.device,
+	confidence_threshold: float,
+	detector_model_key: str,
+	detector_score_threshold: float,
+	max_objects_per_frame: int,
+	min_area_fraction: float,
+	relevant_only: bool,
+	crop_padding: float,
+	sample_every_seconds: float,
+	max_frames: int,
+) -> None:
+	render_section_intro(
+		"Video Review",
+		"Sampled belt-camera review",
+		"Upload conveyor footage, sample frames at a controlled interval, detect objects in each frame, classify the crops, and aggregate a report for the observed belt segment.",
+		icon="gallery",
+	)
+	render_badge_row(["Video intake", "Frame sampling", "Detector-assisted localization", "Belt-segment summary"])
+
+	left, right = st.columns([1.02, 0.98], gap="large")
+	with left:
+		uploaded_video = st.file_uploader(
+			"Video intake",
+			type=[ext.lstrip(".") for ext in sorted(VIDEO_EXTS)],
+			accept_multiple_files=False,
+			help="Recommended for short belt captures where a few sampled frames can summarize the segment.",
+			key="belt_video_upload",
+		)
+		upload_token = f"{uploaded_video.name}:{uploaded_video.size}" if uploaded_video is not None else None
+		c1, c2 = st.columns(2)
+		with c1:
+			clear_btn = st.button("Clear video", key="video_clear")
+		with c2:
+			run_btn = st.button("Run video review", type="primary", key="video_run")
+
+		if uploaded_video is not None and upload_token != st.session_state.get("video_last_upload_token"):
+			st.session_state["pending_video_bytes"] = uploaded_video.getvalue()
+			st.session_state["pending_video_name"] = uploaded_video.name
+			st.session_state["video_last_upload_token"] = upload_token
+			st.session_state.pop("last_video_result", None)
+		elif clear_btn:
+			st.session_state["pending_video_bytes"] = None
+			st.session_state["pending_video_name"] = None
+			st.session_state["video_last_upload_token"] = None
+			st.session_state.pop("last_video_result", None)
+
+		video_bytes = st.session_state.get("pending_video_bytes")
+		if video_bytes:
+			st.video(video_bytes)
+			render_badge_row(
+				[
+					f"source: {st.session_state.get('pending_video_name') or 'uploaded video'}",
+					f"sample every {sample_every_seconds:.2f}s",
+					f"max sampled frames {max_frames}",
+				]
+			)
+		else:
+			render_panel("Video queue", "No active video", "Upload conveyor footage to run sampled frame review.", icon="gallery")
+
+	with right:
+		render_panel(
+			"Video review engine",
+			"Detector + crop classifier",
+			"Each sampled frame uses the pretrained detector for localization and the e-waste classifier for per-object labeling.",
+			icon="review",
+		)
+		r1, r2 = st.columns(2, gap="small")
+		with r1:
+			render_metric_tile("Sample interval", f"{sample_every_seconds:.2f} s", "frame extraction cadence", "neutral", icon="bolt")
+		with r2:
+			render_metric_tile("Max sampled frames", str(max_frames), "review budget per clip", "neutral", icon="stack")
+		r3, r4 = st.columns(2, gap="small")
+		with r3:
+			render_metric_tile("Detector threshold", f"{detector_score_threshold:.0%}", "minimum frame-level box score", "neutral", icon="gauge")
+		with r4:
+			render_metric_tile("Objects per frame", str(max_objects_per_frame), "retained detections cap", "neutral", icon="cluster")
+		render_banner(
+			"Current scope",
+			"The video workflow summarizes sampled frames from a belt segment. It is a strong operational step forward, but it is still frame-wise analysis and not full multi-object tracking across time.",
+			"warning",
+			icon="warning",
+		)
+
+	video_bytes = st.session_state.get("pending_video_bytes")
+	video_name = st.session_state.get("pending_video_name")
+	if video_bytes and run_btn:
+		try:
+			with st.spinner("Sampling frames and running detector-assisted video review..."):
+				video_suffix = Path(video_name or "belt_review.mp4").suffix.lower() or ".mp4"
+				video_payload = sample_video_frames(
+					video_bytes=video_bytes,
+					file_suffix=video_suffix,
+					sample_every_seconds=sample_every_seconds,
+					max_frames=max_frames,
+				)
+				detector_payload = load_detection_model(detector_model_key, device.type)
+				start = time.time()
+				report = analyze_video_belt(
+					detector_payload=detector_payload,
+					classifier_model=classifier_model,
+					video_payload=video_payload,
+					class_names=class_names,
+					classifier_device=device,
+					confidence_threshold=confidence_threshold,
+					detector_score_threshold=detector_score_threshold,
+					max_objects_per_frame=max_objects_per_frame,
+					min_area_fraction=min_area_fraction,
+					relevant_only=relevant_only,
+					crop_padding=crop_padding,
+				)
+				report["elapsed_ms"] = int((time.time() - start) * 1000)
+				st.session_state["last_video_result"] = report
+				st.session_state["last_result"] = {
+					"analysis_kind": "video_belt_review",
+					"prediction": report["prediction"],
+					"decision": report["decision"],
+					"diagnostics": report["diagnostics"],
+					"video_report": report,
+					"elapsed_ms": report["elapsed_ms"],
+				}
+		except Exception as exc:
+			st.error(f"Video belt review failed: {exc}")
+
+	report = st.session_state.get("last_video_result")
+	if report:
+		st.markdown("### Video Belt Report")
+		render_video_belt_report(report, video_name=video_name)
+		render_panel("Processing time", f"{report.get('elapsed_ms', 'n/a')} ms", "frame sampling + detection + crop classification + aggregation", icon="bolt")
+	else:
+		st.info("Run video review to generate sampled frame localization, per-object classification, and belt-segment reporting.")
+
+
 def call_groq_text(prompt: str, system_prompt: str, model_name: str | None = None) -> str:
 	api_key = os.getenv("GROQ_API_KEY")
 	if not api_key:
@@ -2416,10 +3913,20 @@ def build_system_chat_context(
 	if isinstance(last_result, Mapping) and last_result:
 		prediction = last_result.get("prediction", {})
 		decision = last_result.get("decision", {})
+		analysis_kind = str(last_result.get("analysis_kind", "single_item_review"))
 		if isinstance(prediction, Mapping) and isinstance(decision, Mapping):
-			lines.append(
-				f"Current inference context: predicted {prediction.get('class_name', 'n/a')} at {format_pct(to_float(prediction.get('confidence')))} with hazard {decision.get('hazard_level', 'UNKNOWN')}."
-			)
+			if analysis_kind == "video_belt_review":
+				lines.append(
+					f"Current inference context: video belt review with {decision.get('detected_objects', 0)} detected object events across {decision.get('sampled_frames', 'n/a')} sampled frames. Dominant component {prediction.get('class_name', 'n/a')} at {format_pct(to_float(prediction.get('confidence')))} and highest hazard {decision.get('hazard_level', 'UNKNOWN')}."
+				)
+			elif analysis_kind in {"cluster_image_review", "detector_assisted_cluster_review"}:
+				lines.append(
+					f"Current inference context: detector-assisted cluster review with {decision.get('detected_objects', 0)} localized objects and {decision.get('unique_components', 0)} predicted component groups. Dominant component {prediction.get('class_name', 'n/a')} at {format_pct(to_float(prediction.get('confidence')))} and highest hazard {decision.get('hazard_level', 'UNKNOWN')}."
+				)
+			else:
+				lines.append(
+					f"Current inference context: predicted {prediction.get('class_name', 'n/a')} at {format_pct(to_float(prediction.get('confidence')))} with hazard {decision.get('hazard_level', 'UNKNOWN')}."
+				)
 
 	lines.append(
 		"Stay inside project scope. If the user asks about unrelated topics, politely refuse and redirect to system-related questions."
@@ -2448,7 +3955,22 @@ def build_local_chatbot_reply(
 		if isinstance(last_result, Mapping) and last_result:
 			prediction = last_result.get("prediction", {})
 			decision = last_result.get("decision", {})
+			analysis_kind = str(last_result.get("analysis_kind", "single_item_review"))
 			if isinstance(prediction, Mapping):
+				if analysis_kind == "video_belt_review":
+					return (
+						f"The latest workflow was a video belt review. It aggregated `{decision.get('detected_objects', 0)}` object events across "
+						f"`{decision.get('sampled_frames', 'n/a')}` sampled frames. The dominant component evidence was "
+						f"`{prediction.get('class_name', 'n/a')}` at {format_pct(to_float(prediction.get('confidence')))}, and the highest observed hazard was "
+						f"`{decision.get('hazard_level', 'UNKNOWN')}`."
+					)
+				if analysis_kind in {"cluster_image_review", "detector_assisted_cluster_review"}:
+					return (
+						f"The latest workflow was detector-assisted cluster review. It localized `{decision.get('detected_objects', 0)}` objects "
+						f"across `{decision.get('unique_components', 0)}` predicted component groups. Dominant evidence was "
+						f"`{prediction.get('class_name', 'n/a')}` at {format_pct(to_float(prediction.get('confidence')))}, and the aggregated routing hazard band was "
+						f"`{decision.get('hazard_level', 'UNKNOWN')}`."
+					)
 				return (
 					f"The latest inference predicted `{prediction.get('class_name', 'n/a')}` at "
 					f"{format_pct(to_float(prediction.get('confidence')))}. The policy layer mapped it to "
@@ -2642,18 +4164,38 @@ def main() -> None:
 
 	with st.sidebar:
 		st.markdown("### Operations Console")
-		st.caption("Classification, review routing, benchmark records, and data registry for the current research system.")
+		st.caption("Classification, detector-assisted cluster routing, sampled video review, benchmark records, and data registry for the current research system.")
 		active_arch = st.selectbox("Active model", options=available_arches, index=available_arches.index(default_arch))
 		confidence_threshold = st.slider("Human review threshold", 0.50, 0.95, 0.70, 0.01)
 		enable_scene_scan = st.checkbox("Enable composite scene scan", value=True)
 		scene_grid = st.selectbox("Scene scan grid", options=[2, 3], index=1)
 		scene_tile_floor = st.slider("Tile evidence floor", 0.10, 0.80, 0.30, 0.05)
+		with st.expander("Detector-assisted review", expanded=False):
+			detector_model_key = "fasterrcnn_mobilenet_v3_large_320_fpn"
+			st.caption("Pretrained detector for cluster images and sampled video frames.")
+			detector_scope_label = st.selectbox(
+				"Detector scope",
+				options=["E-waste priority COCO labels", "All COCO proposals"],
+				index=0,
+			)
+			detector_score_threshold = st.slider("Detector confidence", 0.20, 0.95, 0.45, 0.05)
+			max_detected_objects = st.slider("Max objects / image", 1, 12, 8, 1)
+			max_objects_per_frame = st.slider("Max objects / frame", 1, 12, 6, 1)
+			min_box_area_percent = st.slider("Minimum box area (%)", 0.2, 20.0, 1.0, 0.2)
+			crop_padding_percent = st.slider("Crop expansion (%)", 0.0, 25.0, 8.0, 1.0)
+		with st.expander("Video sampling", expanded=False):
+			video_sample_every = st.slider("Sample every (seconds)", 0.25, 5.0, 1.00, 0.25)
+			video_max_frames = st.slider("Max sampled frames", 1, 16, 6, 1)
 		workspace = st.selectbox("View", options=WORKSPACES, index=0)
 		st.markdown("### Runtime")
 		st.caption(f"Device: {runtime.device.type}")
 		st.caption(f"GPU: {runtime.gpu_name or 'not detected'}")
 		st.caption(f"VRAM: {f'{runtime.vram_gb:.2f} GB' if runtime.vram_gb is not None else 'n/a'}")
-		st.info("This model is strongest on isolated single-component images. Mixed scenes should be treated as triage support, not detection output.")
+		st.info("Single-item triage remains the benchmarked classifier lane. Cluster and video modes use a pretrained detector for localization and then classify each retained crop.")
+
+	detector_scope_relevant_only = detector_scope_label.startswith("E-waste")
+	min_box_area_fraction = float(min_box_area_percent / 100.0)
+	crop_padding = float(crop_padding_percent / 100.0)
 
 	class_names = assets["class_names"]
 	best_arch = assets["best_arch"]
@@ -2704,15 +4246,17 @@ def main() -> None:
 	render_hero(
 		title="E-Waste Operations Console",
 		copy=(
-			"A premium operator surface for the current research stack: single-label classification, "
-			"confidence-gated review, hazard-aware routing, benchmark evidence, and analytical support layers. "
-			"Mixed scenes are surfaced honestly as triage cases rather than being overstated as true detection."
+			"A premium operator surface for the current research stack: benchmarked single-item classification, "
+			"detector-assisted cluster review for mixed scenes, sampled video-belt analysis, hazard-aware routing, "
+			"benchmark evidence, and analytical support layers."
 		),
 		chips=[
 			f"active backbone {active_arch}",
 			f"benchmark leader {best_arch}",
 			f"human review threshold {confidence_threshold:.0%}",
 			f"scene scan {'enabled' if enable_scene_scan else 'disabled'}",
+			"detector-assisted cluster routing",
+			f"video sampling every {video_sample_every:.2f}s",
 			f"llm {'groq online' if os.getenv('GROQ_API_KEY') else 'deterministic mode'}",
 		],
 		side_notes=[
@@ -2789,152 +4333,70 @@ def main() -> None:
 		st.session_state["llm_results_summary"] = None
 	if "llm_discussion_summary" not in st.session_state:
 		st.session_state["llm_discussion_summary"] = None
+	if "cluster_pending_image" not in st.session_state:
+		st.session_state["cluster_pending_image"] = None
+	if "cluster_pending_label" not in st.session_state:
+		st.session_state["cluster_pending_label"] = None
+	if "cluster_last_upload_token" not in st.session_state:
+		st.session_state["cluster_last_upload_token"] = None
+	if "last_cluster_result" not in st.session_state:
+		st.session_state["last_cluster_result"] = None
+	if "pending_video_bytes" not in st.session_state:
+		st.session_state["pending_video_bytes"] = None
+	if "pending_video_name" not in st.session_state:
+		st.session_state["pending_video_name"] = None
+	if "video_last_upload_token" not in st.session_state:
+		st.session_state["video_last_upload_token"] = None
+	if "last_video_result" not in st.session_state:
+		st.session_state["last_video_result"] = None
 
 	if workspace == "Operations":
-		render_section_intro(
-			"Inference",
-			"Operational inference review",
-			"Submit an image, inspect confidence distribution, and review composite-scene cues before any downstream routing decision.",
-			icon="gallery",
+		ops_mode = st.radio(
+			"Operational mode",
+			options=["Single-item triage", "Cluster image review", "Video belt review"],
+			horizontal=True,
+			key="operations_mode_selector",
 		)
-		render_badge_row(["Intake", "Single-label inference", "Confidence gating", "Composite-scene review"])
-
-		left, right = st.columns([1.06, 0.94], gap="large")
-		with left:
-			uploaded = st.file_uploader(
-				"Image intake",
-				type=["jpg", "jpeg", "png", "webp"],
-				accept_multiple_files=False,
-				help="Best performance comes from a single dominant component in frame.",
+		if ops_mode == "Single-item triage":
+			render_single_item_operations(
+				model=model,
+				class_names=class_names,
+				device=runtime.device,
+				confidence_threshold=confidence_threshold,
+				enable_scene_scan=enable_scene_scan,
+				scene_grid=scene_grid,
+				scene_tile_floor=scene_tile_floor,
+				data_dir=data_dir,
 			)
-			upload_token = f"{uploaded.name}:{uploaded.size}" if uploaded is not None else None
-			a1, a2, a3 = st.columns(3)
-			with a1:
-				sample_btn = st.button("Load test image")
-			with a2:
-				clear_btn = st.button("Clear")
-			with a3:
-				run_btn = st.button("Run inference", type="primary")
-
-			if uploaded is not None and upload_token != st.session_state.get("last_upload_token"):
-				st.session_state["pending_image"] = Image.open(uploaded).convert("RGB")
-				st.session_state["pending_image_label"] = uploaded.name
-				st.session_state["pending_image_source"] = "upload"
-				st.session_state["last_upload_token"] = upload_token
-				st.session_state.pop("last_result", None)
-			elif sample_btn:
-				sample_image, sample_name = pick_random_test_image(data_dir)
-				st.session_state["pending_image"] = sample_image
-				st.session_state["pending_image_label"] = sample_name
-				st.session_state["pending_image_source"] = "sample"
-				st.session_state.pop("last_result", None)
-			elif clear_btn:
-				st.session_state["pending_image"] = None
-				st.session_state["pending_image_label"] = None
-				st.session_state["pending_image_source"] = None
-				st.session_state["last_upload_token"] = None
-				st.session_state.pop("last_result", None)
-
-			image: Image.Image | None = st.session_state.get("pending_image")
-			if image is not None:
-				st.image(image, width="stretch")
-				render_badge_row(
-					[
-						f"source: {st.session_state.get('pending_image_label') or 'uploaded image'}",
-						f"canvas: {image.width} x {image.height}",
-						"single-label classifier",
-					]
-				)
-			else:
-				render_panel("Intake queue", "No active image", "Load a test image or upload a sample to start an operator review cycle.", icon="gallery")
-
-		image = st.session_state.get("pending_image")
-		if image is not None and run_btn:
-			start = time.time()
-			prediction = infer_image(model=model, image=image, class_names=class_names, device=runtime.device)
-			elapsed_ms = int((time.time() - start) * 1000)
-			diagnostics = analyze_prediction(prediction, confidence_threshold)
-			decision = get_agent_decision(prediction["class_name"], prediction["confidence"], confidence_threshold)
-			scene_analysis = None
-			if enable_scene_scan:
-				scene_analysis = analyze_scene_tiles(
-					model=model,
-					image=image,
-					class_names=class_names,
-					device=runtime.device,
-					grid_size=scene_grid,
-					min_confidence=scene_tile_floor,
-				)
-			st.session_state["last_result"] = {
-				"prediction": prediction,
-				"decision": decision,
-				"diagnostics": diagnostics,
-				"scene_analysis": scene_analysis,
-				"elapsed_ms": elapsed_ms,
-			}
-
-		with right:
-			result = st.session_state.get("last_result")
-			if not result:
-				render_panel("Inference state", "Awaiting input", "Run inference to populate confidence, hazard, and scene evidence.", icon="review")
-			else:
-				prediction = result["prediction"]
-				decision = result["decision"]
-				diagnostics = result["diagnostics"]
-				r1, r2 = st.columns(2, gap="small")
-				with r1:
-					render_panel("Predicted class", prediction["class_name"], "single-label top prediction", icon="stack")
-				with r2:
-					render_panel("Confidence", format_pct(prediction["confidence"]), "measured on this input", icon="gauge")
-				render_panel("Latency", f"{result['elapsed_ms']} ms", "single-image forward pass", icon="bolt")
-				render_badge_row(
-					[
-						f"hazard band {decision.get('hazard_level', 'UNKNOWN')}",
-						f"human review {'required' if decision.get('requires_human_review', True) else 'clear'}",
-						f"explanation {decision.get('explanation_source', 'rule-based')}",
-					]
-				)
-				render_banner(diagnostics["headline"], diagnostics["detail"], diagnostics["tone"], icon="review")
-				st.markdown("#### Top-5 Class Scores")
-				render_probability_rows(prediction["top_predictions"])
-
-		result = st.session_state.get("last_result")
-		if result:
-			scene_analysis = result.get("scene_analysis")
-			st.markdown("### Composite Scene Review")
-			if enable_scene_scan and scene_analysis:
-				render_banner(
-					scene_analysis["headline"],
-					f"Tile scan uses a {scene_analysis['grid_size']}x{scene_analysis['grid_size']} grid and reports tiles above {scene_analysis['tile_floor']:.2%}. This is a review aid, not object detection.",
-					"neutral",
-					icon="cluster",
-				)
-				s1, s2 = st.columns([1.05, 0.95], gap="large")
-				with s1:
-					component_frame = pd.DataFrame(scene_analysis["components"])
-					if component_frame.empty:
-						st.info("No tile met the evidence floor. Lower the tile threshold to inspect weaker scene cues.")
-					else:
-						component_frame["peak_confidence"] = component_frame["peak_confidence"].map(lambda x: f"{x:.2%}")
-						st.dataframe(component_frame, width="stretch", hide_index=True)
-				with s2:
-					hazard_counts = scene_analysis["hazard_counts"]
-					h1, h2 = st.columns(2, gap="small")
-					with h1:
-						render_metric_tile("High-risk tiles", str(hazard_counts.get("HIGH", 0)), "tile-level hazard evidence", "danger", icon="warning")
-					with h2:
-						render_metric_tile("Medium-risk tiles", str(hazard_counts.get("MEDIUM", 0)), "tile-level hazard evidence", "warning", icon="shield")
-					render_metric_tile("Low-risk tiles", str(hazard_counts.get("LOW", 0)), "tile-level hazard evidence", "success", icon="spark")
-				tile_columns = st.columns(scene_analysis["grid_size"])
-				for idx, tile in enumerate(scene_analysis["tiles"]):
-					crop = image.crop(tuple(tile["box"]))
-					caption = f"{tile['tile_id']} | {tile['class_name']} | {tile['confidence']:.1%}"
-					with tile_columns[idx % scene_analysis["grid_size"]]:
-						st.image(crop, caption=caption, width="stretch")
-			elif enable_scene_scan:
-				st.info("Run inference to generate composite-scene evidence.")
-			else:
-				st.info("Enable composite scene scan in the sidebar to inspect mixed-object inputs.")
+		elif ops_mode == "Cluster image review":
+			render_cluster_image_operations(
+				classifier_model=model,
+				class_names=class_names,
+				device=runtime.device,
+				confidence_threshold=confidence_threshold,
+				data_dir=data_dir,
+				detector_model_key=detector_model_key,
+				detector_score_threshold=detector_score_threshold,
+				max_objects=max_detected_objects,
+				min_area_fraction=min_box_area_fraction,
+				relevant_only=detector_scope_relevant_only,
+				crop_padding=crop_padding,
+			)
+		else:
+			render_video_belt_operations(
+				classifier_model=model,
+				class_names=class_names,
+				device=runtime.device,
+				confidence_threshold=confidence_threshold,
+				detector_model_key=detector_model_key,
+				detector_score_threshold=detector_score_threshold,
+				max_objects_per_frame=max_objects_per_frame,
+				min_area_fraction=min_box_area_fraction,
+				relevant_only=detector_scope_relevant_only,
+				crop_padding=crop_padding,
+				sample_every_seconds=video_sample_every,
+				max_frames=video_max_frames,
+			)
 
 	if workspace == "Policy":
 		render_section_intro(
@@ -2949,6 +4411,8 @@ def main() -> None:
 		else:
 			decision = result["decision"]
 			diagnostics = result["diagnostics"]
+			analysis_kind = str(result.get("analysis_kind", "single_item_review"))
+			workflow_report = result.get("cluster_report") if analysis_kind == "cluster_image_review" else result.get("video_report") if analysis_kind == "video_belt_review" else None
 			p_top = st.columns(2, gap="large")
 			p_bottom = st.columns(2, gap="large")
 			with p_top[0]:
@@ -2969,7 +4433,12 @@ def main() -> None:
 				if decision.get("llm_error"):
 					st.warning(f"LLM augmentation failed and the system fell back to deterministic reasoning: {decision['llm_error']}")
 			with l2:
-				render_banner("Operating interpretation", "Tie the routing decision to confidence. Confident single-component inputs can proceed automatically; ambiguous or composite scenes should stop at triage.", "neutral", icon="route")
+				interpretation_copy = (
+					"Tie the routing decision to confidence. Confident single-component inputs can proceed automatically; ambiguous or composite scenes should stop at triage."
+					if analysis_kind == "single_item_review"
+					else "Detector-assisted cluster and video lanes localize multiple objects, classify each crop, and then aggregate a cluster-level routing action. Use the highest hazard band and review flags to decide whether the belt segment can proceed."
+				)
+				render_banner("Operating interpretation", interpretation_copy, "neutral", icon="route")
 				render_badge_row(
 					[
 						f"compliance: {'ready' if decision.get('compliance_flag', False) else 'escalate'}",
@@ -2979,7 +4448,12 @@ def main() -> None:
 					]
 				)
 				st.markdown("#### Operational Checklist")
-				render_checklist(build_operational_checklist(decision, diagnostics))
+				checklist_items = (
+					build_cluster_operational_checklist(workflow_report or result)
+					if analysis_kind != "single_item_review"
+					else build_operational_checklist(decision, diagnostics)
+				)
+				render_checklist(checklist_items)
 			trace_steps = decision.get("tool_trace", [])
 			if trace_steps:
 				st.markdown("#### Tool Execution Trace")
