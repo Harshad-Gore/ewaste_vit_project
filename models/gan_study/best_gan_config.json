@@ -1,0 +1,32 @@
+{
+  "selected_classes": [
+    "Battery",
+    "Mobile",
+    "PCB",
+    "light bulbs"
+  ],
+  "best_trial_name": "cdgan_hinge_proj_z128_g96_d96",
+  "best_config": {
+    "trial_name": "cdgan_hinge_proj_z128_g96_d96",
+    "latent_dim": 128,
+    "g_channels": 96,
+    "d_channels": 96,
+    "embed_dim": 64,
+    "lr": 0.0002,
+    "beta1": 0.0
+  },
+  "trial_epochs": 15,
+  "final_epochs": 40,
+  "final_metrics": {
+    "classifier_target_accuracy": 0.0,
+    "mean_target_probability": 0.028419548645615578,
+    "frechet_logit_distance": 58.75554171336801,
+    "diversity_score": 2.509791612625122,
+    "per_class_target_probability": {
+      "Battery": 0.05588604882359505,
+      "Mobile": 0.032403137534856796,
+      "PCB": 0.018535597249865532,
+      "light bulbs": 0.006853416562080383
+    }
+  }
+}
