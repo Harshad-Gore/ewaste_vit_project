@@ -1,58 +1,73 @@
-
 # E-Waste Vision Intelligence System
 
-E-waste component classification, hazard-aware decision support, and analytics tooling aligned with SDG 12.4 and SDG 12.5.
+E-waste component intelligence for **classification**, **detector-assisted mixed-scene review**, **hazard-aware routing**, and **analytics aligned with SDG 12.4 / SDG 12.5**.
 
-This repository is a modular research system that combines:
+This repository combines:
 
-- deep visual classification for 18 e-waste component classes
-- model benchmarking across multiple CNN and transformer backbones
-- competition between deep and traditional machine-learning models
-- unsupervised clustering from learned visual embeddings
-- hazard scoring from a dedicated tabular ANN pipeline
-- a policy-aware decision layer for disposal routing
-- a Streamlit dashboard that exposes inference, policy reasoning, benchmark evidence, analytics, and registry views
+- deep learning classification for 18 e-waste component classes
+- benchmark comparison across CNN and transformer backbones
+- deep-vs-traditional model competition on learned embeddings
+- unsupervised clustering analytics with K-Means and K-Medoids comparison
+- a tabular ANN hazard model with backpropagation diagnostics
+- a policy and agent layer for disposal guidance
+- a Streamlit operations dashboard for single images, clustered scenes, and sampled conveyor-belt video review
+- supplementary notebooks for agentic AI, generative AI, clustering extensions, and GAN analysis
 
-## 1. Research Scope
+## 1. Project Scope
 
-The system is designed to answer the following research need:
+The project addresses a practical research question:
 
-> Can e-waste components be identified visually and then mapped into hazard-aware disposal guidance using a transparent, modular pipeline suitable for research communication and future operational deployment?
+> Can e-waste components be recognized visually and translated into hazard-aware routing decisions, while remaining transparent enough for research reporting and operational prototyping?
 
-The current implementation answers that question with a **single-label image classification system** plus a **policy and analytics layer**. It does **not** yet implement full object detection. Mixed-scene images are therefore handled as **triage support**, not true detection.
+The answer in the current repository is:
+
+- an **18-class visual classifier** for single dominant objects
+- a **detector-assisted dashboard workflow** for mixed scenes and conveyor-belt footage
+- a **hazard-routing layer** that maps recognized components into SDG-linked disposal actions
+- a **supporting analytics stack** for ANN hazard modeling, clustering, benchmarking, and explainability
+
+Important scope note:
+
+- the deployed recognition core is still a **classifier**, not a custom-trained 18-class object detector
+- cluster-image and video lanes use **pretrained localization proposals + crop classification**
+- this makes the dashboard operationally much stronger than a toy upload demo, but it is still a **decision-support prototype**, not a finished industrial automation stack
 
 ## 2. System Architecture
 
-```
-```
+![System Architecture](paper/arch-diagram.svg)
+
+The architecture diagram above is the canonical project flow used for the paper and README. It summarizes the dataset, benchmark training, selected `ConvNeXt-Tiny` deployment path, detector-assisted dashboard workflows, hazard-routing layer, and supporting ANN / clustering / copilot modules.
 
 ## 3. Repository Layout
 
-- `data/`: image dataset organized as `train/`, `val/`, and `test/` in `ImageFolder` format
-- `training/`: reproducible training scripts for deep benchmarking and model competition
+- `data/`: image dataset in `ImageFolder` format with `train/`, `val/`, and `test/`
+- `training/`: deep benchmark and competition scripts
+- `training/image_preprocessing.py`: aspect-ratio-preserving preprocessing utilities
 - `pipelines/`: clustering and ANN hazard pipelines
-- `evaluation/`: reusable metrics utilities
-- `agent/`: hazard lookup, regulation checks, disposal recommendation logic, and optional LLM augmentation
-- `dashboard/`: Streamlit-based research and operations dashboard
-- `models/`: checkpoints, metrics JSON files, plots, and downstream analytical artifacts
-- `notebooks/`: exploratory and paper-traceable notebook workflow
-- `paper/`: publication assets and supporting material
+- `evaluation/`: reusable evaluation and plotting utilities
+- `agent/`: hazard lookup, compliance checks, disposal recommendations, and LLM-aware decision logic
+- `dashboard/`: Streamlit application for operations, policy, analytics, registry, and copilot workflows
+- `models/`: checkpoints, JSON summaries, plots, and analytical artifacts
+- `notebooks/`: reproducible notebooks for the main study and supplementary assignment-oriented studies
+- `paper/`: supporting paper assets
 
 ## 4. Dataset and Taxonomy
 
-### 4.1 Dataset structure
+### 4.1 Dataset format
 
-The vision dataset is stored as an `ImageFolder` dataset with three splits:
+The dataset is organized as an `ImageFolder` classification corpus:
 
 - `data/train`: 23,960 images
 - `data/val`: 1,800 images
 - `data/test`: 1,800 images
+- total: **27,560 images**
+- classes: **18**
 
-Total dataset size in the current checkout: **27,560 images** across **18 classes**.
+The current codebase uses **aspect-ratio-preserving resize-and-pad preprocessing** so the full object remains visible even when original image sizes differ substantially.
 
-### 4.2 Component classes
+### 4.2 Class taxonomy
 
-The current class taxonomy is:
+The 18 component classes are:
 
 - `Air-Conditioner`
 - `Battery`
@@ -73,36 +88,54 @@ The current class taxonomy is:
 - `light bulbs`
 - `transistor`
 
-### 4.3 Hazard-aware mapping
+### 4.3 Class-wise split distribution
 
-Each component is mapped in the policy layer to:
+| Class | Train | Val | Test | Total |
+| --- | ---: | ---: | ---: | ---: |
+| Air-Conditioner | 2114 | 100 | 100 | 2314 |
+| Battery | 1160 | 100 | 100 | 1360 |
+| heat-sink | 800 | 100 | 100 | 1000 |
+| Keyboard | 1259 | 100 | 100 | 1459 |
+| Laptop | 1415 | 100 | 100 | 1615 |
+| light bulbs | 1413 | 100 | 100 | 1613 |
+| Microchip-IC | 3556 | 100 | 100 | 3756 |
+| Microwave | 1113 | 100 | 100 | 1313 |
+| Mobile | 839 | 100 | 100 | 1039 |
+| Mouse | 800 | 100 | 100 | 1000 |
+| Passive-Component | 2692 | 100 | 100 | 2892 |
+| PCB | 841 | 100 | 100 | 1041 |
+| Printer | 1661 | 100 | 100 | 1861 |
+| Refrigerator | 1098 | 100 | 100 | 1298 |
+| Resistor | 800 | 100 | 100 | 1000 |
+| Television | 800 | 100 | 100 | 1000 |
+| transistor | 800 | 100 | 100 | 1000 |
+| Washing Machine | 799 | 100 | 100 | 999 |
+| **Total** | **23960** | **1800** | **1800** | **27560** |
 
-- a hazard band: `HIGH`, `MEDIUM`, or `LOW`
-- a material profile
-- a disposal pathway
+### 4.4 Hazard-aware taxonomy
+
+Every recognized component is mapped by the policy layer to:
+
+- `hazard_level`: `HIGH`, `MEDIUM`, or `LOW`
+- `material_profile`
+- `disposal_pathway`
+- `sdg_target`
+- `requires_human_review`
 
 Examples:
 
-- `Battery` -> `HIGH` hazard -> hazardous battery recycling
-- `PCB` -> `HIGH` hazard -> certified e-waste recycler for metal recovery
-- `Printer` -> `MEDIUM` hazard -> e-waste routing with toner-safe handling
-- `Keyboard` -> `LOW` hazard -> plastics and small-e-waste stream
+- `Battery` -> `HIGH` -> `send to hazardous battery recycling facility`
+- `PCB` -> `HIGH` -> `send to certified ewaste recycler for metal recovery`
+- `Printer` -> `MEDIUM` -> `route to ewaste stream with toner-safe handling`
+- `Keyboard` -> `LOW` -> `route to plastics and small-ewaste stream`
 
-These mappings are defined centrally in `agent/tools.py`, which makes the disposal reasoning explicit and auditable.
+These mappings live centrally in [`agent/tools.py`](agent/tools.py), which keeps disposal reasoning explicit and auditable.
 
-## 5. End-to-End Working of the System
+## 5. Core Model Benchmark
 
-### 5.1 Stage 1: Deep visual benchmark training
+### 5.1 Architectures evaluated
 
-The main visual learning pipeline is implemented in `training/research_benchmark.py`.
-
-#### Input
-
-- `data/train`
-- `data/val`
-- `data/test`
-
-#### Supported architectures
+The benchmark runner evaluates:
 
 - `resnet18`
 - `resnet50`
@@ -112,537 +145,566 @@ The main visual learning pipeline is implemented in `training/research_benchmark
 - `swin_tiny`
 - `vit_b16`
 
-#### Training strategy
+Training is handled by [`training/research_benchmark.py`](training/research_benchmark.py).
 
-The benchmark pipeline uses transfer learning with architecture-specific classification heads. Key characteristics:
+### 5.2 Current benchmark summary
 
-- pretrained ImageNet initialization
-- weighted random sampling to reduce class imbalance effects
-- class-weighted cross-entropy loss
-- label smoothing
-- data augmentation for training:
-  - resize and random crop
-  - horizontal flip
-  - random rotation
-  - color jitter
-  - random erasing
-- initial backbone freezing
-- scheduled partial unfreezing for fine-tuning
-- `AdamW` optimizer
-- cosine annealing learning-rate schedule
-- optional AMP on CUDA devices
-- early stopping based on **validation macro-F1**
+The current saved benchmark artifacts select **ConvNeXt-Tiny** as the best deployed model.
 
-#### Why macro-F1 matters here
+| Model | Test Accuracy | Macro-F1 | Weighted-F1 | Test Loss | Elapsed Seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| ResNet18 | 96.78% | 0.9678 | 0.9678 | 0.4950 | 6223.23 |
+| ResNet50 | 97.89% | 0.9789 | 0.9789 | 0.4537 | 8150.52 |
+| EfficientNet-B0 | 91.28% | 0.9115 | 0.9115 | 1.0918 | 5356.05 |
+| EfficientNet-B3 | 94.22% | 0.9419 | 0.9419 | 0.5773 | 6377.65 |
+| **ConvNeXt-Tiny** | **98.11%** | **0.9811** | **0.9811** | **0.4332** | **7695.14** |
+| Swin-Tiny | 97.67% | 0.9767 | 0.9767 | 0.4506 | 6245.64 |
+| ViT-B16 | 98.11% | 0.9811 | 0.9811 | 0.4312 | 12013.19 |
 
-Model selection is intentionally based on **macro-F1**, not only accuracy, because the project must remain robust across all component classes rather than only favor the most frequent classes.
+### 5.3 Why ConvNeXt-Tiny was selected
 
-#### Output artifacts
+`ConvNeXt-Tiny` and `ViT-B16` reached the same top-line accuracy in the saved benchmark, but `ConvNeXt-Tiny` is the selected deployed model because:
 
-For each architecture, the script writes:
+- it is the model referenced in [`models/classification/best_model.json`](models/classification/best_model.json)
+- it matches the best accuracy while being materially faster than `ViT-B16`
+- it gives a strong balance of accuracy, runtime, and deployment practicality for the dashboard
+
+### 5.4 Per-class behavior of the selected model
+
+The strongest `ConvNeXt-Tiny` per-class F1 scores are near-perfect for many classes. The relatively more difficult classes are:
+
+- `Passive-Component`: `0.9490`
+- `Microchip-IC`: `0.9519`
+- `Printer`: `0.9645`
+- `heat-sink`: `0.9746`
+- `Laptop`: `0.9754`
+
+This is consistent with a fine-grained electronics problem where visually similar smaller components remain harder than large, highly distinctive devices.
+
+## 6. End-to-End Workflow
+
+### 6.1 Stage 1: Deep benchmark training
+
+Input:
+
+- `data/train`
+- `data/val`
+- `data/test`
+
+Training characteristics:
+
+- transfer learning from pretrained backbones
+- aspect-ratio-preserving preprocessing
+- weighted sampling and class-aware training safeguards
+- `AdamW` optimization
+- fine-tuning after initial freezing
+- macro-F1-aware model selection
+- optional AMP on CUDA
+- test-time augmentation in saved benchmark configuration
+
+Artifacts written:
 
 - `models/classification/<arch>/<arch>_best.pth`
 - `models/classification/<arch>/results.json`
-- `models/classification/<arch>/classification_report.txt`
-
-At the aggregate level it writes:
-
 - `models/classification/test_results.json`
 - `models/classification/best_model.json`
 - `models/classification/benchmark_summary.json`
+- plots under `models/classification/graphs/`
 
-The repository also contains archived benchmark snapshots such as `models/classification/dl_results.json`.
+### 6.2 Stage 2: Best-model deployment
 
-### 5.2 Stage 2: Best-model selection and benchmark interpretation
+The best saved model is promoted to dashboard use. In the current repository state, the deployed visual model is:
 
-After benchmarking, the project identifies the best visual classifier from the saved results.
+- architecture: `convnext_tiny`
+- checkpoint: `models/classification/convnext_tiny/convnext_tiny_best.pth`
+- test accuracy: `98.11%`
+- macro-F1: `0.9811`
 
-In the current repository state:
+### 6.3 Stage 3: Model competition
 
-- `best_model.json` points to **ResNet50**
-- the archived snapshot in `dl_results.json` reports:
+[`training/model_competition.py`](training/model_competition.py) compares:
 
-| Model | Accuracy | Macro-F1 | Weighted-F1 |
-| --- | ---: | ---: | ---: |
-| ResNet50 | 95.72% | 0.9564 | 0.9564 |
-| EfficientNet-B0 | 95.39% | 0.9534 | 0.9534 |
-| ResNet18 | 95.00% | 0.9497 | 0.9497 |
-| ViT-B16 | 94.50% | 0.9447 | 0.9447 |
+- saved deep models directly
+- traditional ML models trained on deep embeddings
 
-Important interpretation:
+Current competition leaderboard highlight:
 
-- these metrics describe performance on the **single-label held-out classification setup**
-- they do **not** mean the system is already a true multi-object scene understanding model
-- this is why a cluttered collage image can still produce uncertain live behavior despite a strong benchmark score
+- winner: `logistic_regression`
+- accuracy: `98.22%`
+- embedding source: `ConvNeXt-Tiny`
 
-### 5.3 Stage 3: Model competition across deep and traditional ML
+Interpretation:
 
-The competition framework is implemented in `training/model_competition.py`.
+- the learned ConvNeXt feature space is strong enough that a linear downstream classifier performs extremely well
+- the dashboard still deploys **ConvNeXt-Tiny itself** for end-to-end inference because it is the native image model and does not require a second-stage classical inference stack
 
-This script performs two kinds of comparison:
+Artifacts:
 
-#### A. Deep model comparison
-
-It reloads every discovered deep checkpoint and evaluates it on the test split.
-
-#### B. Traditional ML comparison using deep embeddings
-
-It extracts learned embeddings from the best deep model or a chosen embedding source model, then trains classical classifiers on those features.
-
-Traditional candidates include:
-
-- KNN
-- SVM with RBF kernel
-- linear SVM
-- random forest
-- logistic regression
-- naive Bayes
-- gradient boosting
-- a hierarchical SVM that first predicts hazard band and then predicts component class inside that hazard group
-
-#### Output artifacts
-
-When this pipeline is run, it writes:
-
+- [`models/competition/leaderboard.json`](models/competition/leaderboard.json)
 - `models/competition/deep_results.json`
 - `models/competition/traditional_ml_results.json`
 - `models/competition/all_players_results.json`
-- `models/competition/leaderboard.json`
 
-This allows the project to compare whether raw deep classifiers or downstream traditional learners are more competitive on the learned representation space.
+### 6.4 Stage 4: Clustering analytics
 
-### 5.4 Stage 4: Unsupervised clustering from learned visual embeddings
+[`pipelines/clustering_pipeline.py`](pipelines/clustering_pipeline.py) explores the structure of learned visual embeddings.
 
-The clustering workflow is implemented in `pipelines/clustering_pipeline.py`.
+Current pipeline:
 
-#### Purpose
+- feature extractor: `ResNet50` checkpoint
+- total clustered samples: `27,560`
+- standardization with `StandardScaler`
+- PCA with `95%` variance retained
+- resulting PCA components: `1464`
+- default clustering: `KMeans(n_clusters=3)`
 
-This stage evaluates whether visually learned embeddings also carry unsupervised structure aligned with semantic or hazard relationships.
+Current K-Means metrics:
 
-#### Current implementation
+- silhouette score: `0.0783`
+- Davies-Bouldin index: `4.9347`
+- Calinski-Harabasz index: `1034.56`
+- adjusted Rand index: `0.0757`
+- normalized mutual information: `0.2301`
 
-- the pipeline loads the visual dataset across train, validation, and test
-- it uses the **ResNet50 checkpoint** as the embedding extractor backbone
-- embeddings are standardized
-- PCA is applied to retain 95% of variance
-- KMeans clustering is run, currently with `n_clusters=3`
-- t-SNE projections are generated for visualization
+Supplementary K-Means vs K-Medoids comparison:
 
-#### Output artifacts
+- `K-Medoids` improves internal compactness
+  - silhouette: `0.1054`
+  - Davies-Bouldin index: `4.1538`
+- `K-Means` aligns slightly better with known labels
+  - ARI: `0.0757` vs `0.0380`
+  - NMI: `0.2301` vs `0.2187`
 
-- `models/clustering/clustering_metrics.json`
-- `models/clustering/clustering_results.json`
-- `models/clustering/embeddings.npy`
-- `models/clustering/embeddings_pca.npy`
-- `models/clustering/cluster_labels.npy`
-- `models/clustering/tsne_result.npy`
-- `models/clustering/tsne_by_class.png`
-- `models/clustering/tsne_by_hazard.png`
-- additional graphs under `models/clustering/graphs/`
+Interpretation:
 
-#### Current supporting metrics
+- the embedding space contains **coarse latent structure**
+- it does **not** split cleanly into 18 pure unsupervised class groups
+- clustering is therefore treated as a **supporting research analysis**, not a deployed predictive module
 
-From the current saved artifacts:
+### 6.5 Stage 5: ANN hazard modeling
 
-- silhouette score: `0.1662`
-- normalized mutual information: `0.0340`
-- adjusted Rand index: `0.0251`
+[`pipelines/ann_hazard_pipeline.py`](pipelines/ann_hazard_pipeline.py) models hazard severity separately from image classification.
 
-These results should be interpreted as **supporting analytical evidence**, not as a deployed classifier. They help reveal latent structure, but they are not a substitute for supervised prediction.
+Current ANN features:
 
-### 5.5 Stage 5: ANN-based hazard scoring pipeline
+- `comp_enc`
+- `age_years`
+- `weight_kg`
+- `contains_lithium`
+- `contains_lead`
+- `contains_mercury`
+- `contains_cadmium`
+- `contains_cfc`
+- `recyclable`
+- `mat_enc`
+- `wc_enc`
+- `cond_enc`
+- `reg_enc`
+- `disp_enc`
 
-The hazard modeling workflow is implemented in `pipelines/ann_hazard_pipeline.py`.
+Current ANN results:
 
-#### Purpose
+- train samples: `1890`
+- val samples: `405`
+- test samples: `405`
+- hazard class accuracy: `95.56%`
+- hazard macro-F1: `0.9249`
+- MAE: `2.7521`
+- RMSE: `3.7666`
+- R^2: `0.9859`
 
-This stage models **hazard severity** separately from the image classifier. It is meant to provide a quantitative supporting layer for environmental risk reasoning.
+### 6.6 Stage 6: ANN backpropagation diagnostics
 
-#### Important methodological note
+The supplementary notebook [`notebooks/09_ann_backpropagation_study.ipynb`](notebooks/09_ann_backpropagation_study.ipynb) adds training-dynamics analysis.
 
-This ANN is trained on a **generated tabular dataset**, not directly on the image embeddings.
+Current backprop summary:
 
-The script defines component-level hazard profiles with attributes such as:
+- best epoch: `103`
+- best validation loss: `6.0876`
+- optimizer: `AdamW`
+- loss: `HuberLoss(delta=5.0)`
+- gradient clipping: `1.0`
+- peak total gradient norm: `156.2793`
+- mean total gradient norm: `85.3744`
+- test R^2: `0.9860`
 
-- lithium content
-- lead content
-- mercury content
-- cadmium content
-- CFC presence
-- recyclability
-- material type
-- weight class
+Interpretation:
 
-It then synthesizes tabular samples by varying:
+- gradient flow reaches both early and late layers
+- clipping stabilizes training despite large raw gradient norms
+- the ANN converges in a controlled way and supports the hazard reasoning layer with a quantitatively strong fit
 
-- component age
-- weight
-- condition
-- regional risk
-- disposal history
+## 7. Dashboard Workflow
 
-From these inputs it computes a hazard score in the range `0-100`, trains a feed-forward ANN regressor, and then reports both:
+The Streamlit dashboard in [`dashboard/app.py`](dashboard/app.py) is the operational face of the system.
 
-- regression metrics on continuous hazard score
-- derived hazard-class metrics after bucketing into `HIGH`, `MEDIUM`, and `LOW`
-
-#### Output artifacts
-
-- `models/ann/ann_best_18cls.pth`
-- `models/ann/ann_results_18cls.json`
-- `models/ann/ewaste_tabular_18cls.csv`
-- `models/ann/feature_importance.png`
-- `models/ann/hazard_class_confusion.png`
-- `models/ann/predicted_vs_actual.png`
-
-#### Current supporting metrics
-
-From the current saved artifacts:
-
-- hazard class accuracy: `95.06%`
-- `R^2`: `0.9846`
-- `MAE`: `2.7732`
-- `RMSE`: `3.9278`
-- `MAPE`: `7.2`
-
-This stage strengthens the project by showing that the system is not limited to visual recognition alone; it also models downstream environmental severity.
-
-### 5.6 Stage 6: Agentic decision layer
-
-The decision layer lives in:
-
-- `agent/tools.py`
-- `agent/agent.py`
-- `agent/prompts.py`
-
-#### What it does
-
-Once the image classifier predicts a component and a confidence score, the agent layer transforms that output into an operational recommendation.
-
-Internally, the decision workflow is:
-
-1. `hazard_lookup(component)`
-2. `regulation_check(hazard_level, confidence, threshold)`
-3. `disposal_recommendation(...)`
-4. optional LLM augmentation for explanation wording
-
-#### Core design
-
-The important architectural point is that the **core decision logic is deterministic and tool-driven**.
-
-- hazard level comes from the hazard map
-- material profile comes from the material map
-- disposal pathway comes from the disposal map
-- human review is triggered by confidence thresholding
-
-If a `GROQ_API_KEY` is available, the system can augment the explanation using Groq's OpenAI-compatible API. If Anthropic is available and configured, that path is also supported. However:
-
-- the LLM does not replace the hazard mapping
-- the LLM does not replace the confidence threshold
-- the LLM does not replace the routing rule
-- the LLM only augments the explanation layer
-
-#### Agent outputs exposed to the dashboard
-
-The agent returns:
-
-- predicted component
-- hazard level
-- material profile
-- disposal pathway
-- short recommendation
-- explanation text
-- SDG target
-- compliance flag
-- human review flag
-- agent mode
-- explanation source
-- LLM provider
-- tool execution trace
-
-This makes the reasoning inspectable rather than opaque.
-
-### 5.7 Stage 7: Dashboard workflow
-
-The dashboard is implemented in `dashboard/app.py` and is organized as a workflow-oriented interface rather than a simple upload page.
-
-#### Dashboard initialization
-
-When the dashboard starts, it:
-
-- detects runtime hardware
-- discovers available classification checkpoints
-- loads benchmark metrics from `test_results.json` and/or `dl_results.json`
-- loads the best checkpoint and class names
-- loads ANN and clustering metrics
-- loads the hazard taxonomy for the policy layer
-
-#### Dashboard views
-
-The dashboard exposes five operational views.
-
-#### Operations
-
-This is the live inference view.
-
-It allows the user to:
-
-- upload an image
-- load a test image
-- set a human-review threshold
-- enable or disable composite scene scan
-- run inference
-
-For each inference, the dashboard:
-
-1. applies the evaluation transform
-2. runs the classifier
-3. computes softmax probabilities
-4. shows predicted class, confidence, latency, and top-5 class scores
-5. evaluates whether confidence is reliable enough for downstream action
-
-##### Composite scene review
-
-If enabled, the dashboard performs a tile-based scene scan:
-
-- the image is divided into a `2 x 2` or `3 x 3` grid
-- each tile is classified independently
-- the system aggregates repeated component evidence and tile-level hazard counts
-
-This is explicitly a **triage aid**, not an object detector.
-
-#### Policy
-
-This view converts the classifier output into:
-
-- hazard level
-- SDG-linked compliance context
-- human-review requirement
-- recommended pathway
-- material profile
-- decision rationale
-- tool execution trace
-
-#### Benchmarks
-
-This view exposes:
-
-- benchmark tables
-- confusion matrices
-- training curves
-- Grad-CAM interpretability plots
-- metric-source discrepancies if multiple snapshots exist
-
-It also supports optional Groq-based drafting of a results paragraph for research writing.
-
-#### Analytics
-
-This view exposes:
-
-- ANN hazard metrics
-- regression performance
-- clustering metrics
-- supporting ANN and clustering figures
-
-It can also draft a short discussion paragraph through Groq if configured.
-
-#### Registry
-
-This view documents:
-
-- active and available model checkpoints
-- dataset split composition
-- class-level counts
-- the hazard taxonomy and disposal pathways used by the policy engine
-
-#### Session-state design
-
-The dashboard stores the active image and latest inference results in Streamlit session state. This allows the same prediction to flow across views without rerunning the model every time the user switches sections.
-
-## 6. What the Dashboard Means Scientifically
-
-The dashboard should be described as:
-
-> A workflow-oriented research console that combines single-label e-waste classification, confidence-aware triage, hazard-aware decision support, benchmark visualization, and supporting analytical modules.
-
-It should **not** be described as:
-
-- a true object detection system
-- a conveyor-belt-ready multi-object perception system
-- a fully autonomous disposal controller
-
-## 7. Current Limitations
-
-These limitations are important for research honesty:
-
-- the visual model is a **single-label classifier**, so cluttered scenes and collages violate the training assumption
-- the composite scene review is **tile-based classification**, not bounding-box detection
-- the ANN hazard model is trained on a **generated tabular proxy dataset**, not measured plant-floor sensor data
-- benchmark snapshots from archived outputs and freshly regenerated outputs should not be conflated as a single universal deployment number
-- LLM augmentation is optional and explanatory; it is not the source of the core classification or policy decision
-
-## 8. Future Research Direction
-
-The clearest next research step is to move from single-label classification to **multi-object detection or multi-label recognition**. This would allow the system to process cluttered scenes, conveyor-belt scenarios, and mixed e-waste inputs more faithfully.
-
-Until then, the current system should be positioned as:
-
-- a strong **single-object benchmarked classifier**
-- a **hazard-aware decision-support layer**
-- a **research dashboard with transparent evidence**
-- a foundation for future detector-based deployment
-
-## 9. Setup
-
-Create and activate a virtual environment:
-
-```bash
-python -m venv .venv
-```
-
-Windows:
+Launch command:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
+streamlit run dashboard\app.py
 ```
 
-Install dependencies:
+### 7.1 Workspace structure
 
-```bash
+The dashboard currently exposes six workspaces:
+
+- `Operations`
+- `Policy`
+- `Benchmarks`
+- `Analytics`
+- `Registry`
+- `Copilot`
+
+### 7.2 Operations workspace
+
+The `Operations` workspace now supports three modes:
+
+#### A. Single-item triage
+
+Purpose:
+
+- benchmark-aligned single-image classification
+
+Behavior:
+
+- classifies one uploaded image with `ConvNeXt-Tiny`
+- reports class, confidence, latency, and top scores
+- optionally runs a composite scene scan for uncertainty triage
+
+#### B. Cluster image review
+
+Purpose:
+
+- review images containing multiple e-waste items in one scene
+
+Behavior:
+
+- uses **pretrained Faster R-CNN MobileNetV3 320 FPN** for localization proposals
+- augments those proposals with a **classifier-driven scene scan** to recover classes the COCO detector often misses
+- classifies retained crops with the e-waste classifier
+- aggregates a cluster-level hazard and routing report
+
+Outputs include:
+
+- overlay image with localized objects
+- per-object classification table
+- component summary
+- hazard counts
+- routing decision
+- JSON export
+- CSV export
+
+#### C. Video belt review
+
+Purpose:
+
+- review short conveyor-belt videos in a more factory-like setting
+
+Behavior:
+
+- uploads a video file
+- samples frames with OpenCV
+- localizes objects using the same hybrid proposal strategy
+- classifies each retained crop
+- aggregates a belt-segment report
+
+Outputs include:
+
+- sampled-frame summaries
+- per-event object table
+- average objects per frame
+- hazard distribution
+- route diversity
+- review rate
+- automation clear rate
+- belt-segment level disposal recommendation
+
+Important limitation:
+
+- this is **frame-wise sampled video analysis**, not full multi-object tracking across time
+
+### 7.3 Policy workspace
+
+The `Policy` workspace translates recognition output into operational guidance.
+
+For each inference, it can surface:
+
+- `hazard_level`
+- `material_profile`
+- `disposal_pathway`
+- `sdg_target`
+- `requires_human_review`
+- `agent_mode`
+- `llm_provider`
+- `explanation_source`
+- `tool_trace`
+
+This keeps the routing layer transparent rather than acting like a black box.
+
+### 7.4 Benchmarks workspace
+
+This workspace presents the scientific evidence behind the model:
+
+- best benchmark summary
+- confusion matrices
+- training curves
+- per-class F1 comparison
+- Grad-CAM interpretability outputs
+
+### 7.5 Analytics workspace
+
+This workspace brings together:
+
+- ANN hazard metrics
+- ANN backpropagation diagnostics
+- clustering outputs
+- K-Means vs K-Medoids comparison
+- model competition results
+- an embedded `System Copilot`
+
+### 7.6 Registry workspace
+
+This workspace acts as the system inventory:
+
+- available checkpoints
+- active deployed model
+- dataset distribution
+- hazard taxonomy
+- material and disposal mappings
+
+### 7.7 Copilot workspace
+
+The `Copilot` is a project-scoped chatbot.
+
+Behavior:
+
+- if `GROQ_API_KEY` is set, it uses a transformer-backed Groq model
+- otherwise it falls back to deterministic local replies for common project questions
+
+Context grounding includes:
+
+- current benchmark winner
+- ANN metrics
+- clustering results
+- current inference state
+- hazard-routing rules
+
+It is intentionally restricted to the project domain rather than acting as a general assistant.
+
+## 8. Agentic and Generative AI Layer
+
+The project includes an explicit agent / copilot layer rather than placeholder text.
+
+Decision records can expose:
+
+- `agent_mode`
+- `llm_provider`
+- `explanation_source`
+- `tool_trace`
+
+The agent flow is built around:
+
+- hazard lookup
+- compliance threshold checking
+- disposal recommendation generation
+- optional LLM augmentation when Groq is configured
+
+Supporting supplementary notebooks:
+
+- [`notebooks/07_agentic_ai_workbench.ipynb`](notebooks/07_agentic_ai_workbench.ipynb)
+- [`notebooks/08_generative_ai_research_writer.ipynb`](notebooks/08_generative_ai_research_writer.ipynb)
+
+Saved agentic casebook:
+
+- [`models/agentic/agentic_workbench_cases.json`](models/agentic/agentic_workbench_cases.json)
+
+## 9. Notebook Workflow
+
+### 9.1 Core pipeline notebooks
+
+- [`notebooks/01_data_prep.ipynb`](notebooks/01_data_prep.ipynb): dataset preparation and inspection
+- [`notebooks/02_cnn_classification.ipynb`](notebooks/02_cnn_classification.ipynb): classification experimentation
+- [`notebooks/03_clustering.ipynb`](notebooks/03_clustering.ipynb): clustering workflow
+- [`notebooks/04_ann_hazard.ipynb`](notebooks/04_ann_hazard.ipynb): ANN hazard modeling
+- [`notebooks/05_full_comparison.ipynb`](notebooks/05_full_comparison.ipynb): comparative analysis
+- [`notebooks/06_results_gallery.ipynb`](notebooks/06_results_gallery.ipynb): consolidated artifact gallery
+
+### 9.2 Supplementary notebooks
+
+These studies extend the project without disturbing the main benchmark and dashboard pipeline:
+
+- [`notebooks/07_agentic_ai_workbench.ipynb`](notebooks/07_agentic_ai_workbench.ipynb)
+- [`notebooks/08_generative_ai_research_writer.ipynb`](notebooks/08_generative_ai_research_writer.ipynb)
+- [`notebooks/09_ann_backpropagation_study.ipynb`](notebooks/09_ann_backpropagation_study.ipynb)
+- [`notebooks/10_clustering_kmeans_kmedoids.ipynb`](notebooks/10_clustering_kmeans_kmedoids.ipynb)
+- [`notebooks/11_gan_model_analysis.ipynb`](notebooks/11_gan_model_analysis.ipynb)
+
+### 9.3 GAN analysis notebook
+
+The GAN study is deliberately separate from the main classification workflow.
+
+Current saved GAN study notes:
+
+- selected classes: `Battery`, `Mobile`, `PCB`, `light bulbs`
+- best trial recorded in [`models/gan_study/best_gan_config.json`](models/gan_study/best_gan_config.json)
+- artifact plots written under `models/gan_study/graphs/`
+
+This notebook is intended as a supplementary assignment / exploratory study, not as the deployed generation pipeline for the project.
+
+## 10. Key Artifacts
+
+### 10.1 Classification training curves
+
+![Training curves](models/classification/graphs/training_curves_18cls.png)
+
+### 10.2 Classification confusion matrices
+
+![Confusion matrices](models/classification/graphs/confusion_matrices_18cls.png)
+
+### 10.3 Per-class F1 comparison
+
+![Per-class F1 comparison](models/classification/graphs/per_class_f1_comparison.png)
+
+### 10.4 ANN backpropagation diagnostics
+
+![ANN backpropagation diagnostics](models/ann/graphs/ann_backprop_diagnostics.png)
+
+### 10.5 K-Means vs K-Medoids comparison
+
+![K-Means vs K-Medoids comparison](models/clustering/graphs/kmeans_kmedoids_comparison.png)
+
+Other artifact locations:
+
+- classification graphs: `models/classification/graphs/`
+- ANN graphs: `models/ann/graphs/`
+- clustering graphs: `models/clustering/graphs/`
+- GAN graphs: `models/gan_study/graphs/`
+
+## 11. How to Run
+
+### 11.1 Environment setup
+
+Create a virtual environment and install the project dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-## 10. Running the Dashboard
+Install a matching `torch` and `torchvision` build for your CPU or GPU environment if they are not already available.
 
-Always launch the dashboard with Streamlit:
-
-```bash
-streamlit run dashboard/app.py
-```
-
-Do not run it with `python dashboard/app.py`.
-
-Optional LLM-augmented explanations use environment variables:
+Optional environment variables:
 
 ```powershell
-$env:GROQ_API_KEY = "<your_key_here>"
-$env:GROQ_MODEL = "openai/gpt-oss-20b"
+$env:GROQ_API_KEY="YOUR_GROQ_KEY"
+$env:GROQ_MODEL="openai/gpt-oss-20b"
 ```
 
-Never hardcode API keys in source files.
+### 11.2 Main pipeline commands
 
-## 11. Script-First Pipeline Workflow
+Train or retrain the benchmark:
 
-The repository is designed to be runnable end to end from scripts.
-
-Run the full pipeline:
-
-```bash
-python run_system.py all
-```
-
-Force retraining of the classification benchmark:
-
-```bash
-python run_system.py all --force-train
-```
-
-Run individual stages:
-
-```bash
+```powershell
 python run_system.py train
+```
+
+Run the deep-vs-traditional competition:
+
+```powershell
 python run_system.py compete
+```
+
+Run clustering:
+
+```powershell
 python run_system.py cluster
+```
+
+Run the ANN hazard pipeline:
+
+```powershell
 python run_system.py ann
 ```
 
-### What `run_system.py all` does
+Run the full sequence:
 
-1. checks whether classification checkpoints already exist
-2. runs deep benchmark training if needed
-3. runs model competition
-4. runs clustering analysis
-5. runs ANN hazard modeling
-
-## 12. Direct Commands
-
-Run only the deep classification benchmark:
-
-```bash
-python training/research_benchmark.py --data-dir data --output-dir models/classification
+```powershell
+python run_system.py all
 ```
 
-Run only the model competition:
+Force a fresh classification retrain before the full sequence:
 
-```bash
-python training/model_competition.py --data-dir data --classification-dir models/classification --output-dir models/competition
+```powershell
+python run_system.py all --force-train
 ```
 
-Run only clustering:
+### 11.3 Dashboard
 
-```bash
-python pipelines/clustering_pipeline.py --data-dir data --classification-dir models/classification --output-dir models/clustering
+```powershell
+streamlit run dashboard\app.py
 ```
 
-Run only ANN hazard modeling:
+Note:
 
-```bash
-python pipelines/ann_hazard_pipeline.py --output-dir models/ann
-```
+- the first detector-assisted cluster/video run may download pretrained `torchvision` detection weights into the local cache
 
-## 13. Key Artifact Map
+### 11.4 Notebooks
 
-### Classification
+Open Jupyter or VS Code notebooks and run the files in `notebooks/` for reproducible analyses and supplementary studies.
 
-- checkpoints: `models/classification/<arch>/<arch>_best.pth`
-- per-model metrics: `models/classification/<arch>/results.json`
-- benchmark snapshot: `models/classification/test_results.json`
-- archived benchmark snapshot: `models/classification/dl_results.json`
-- best model pointer: `models/classification/best_model.json`
-- plots: `models/classification/graphs/`
+## 12. Practical Interpretation
 
-### Competition
+What the system is strong at:
 
-- `models/competition/leaderboard.json`
-- `models/competition/deep_results.json`
-- `models/competition/traditional_ml_results.json`
-- `models/competition/all_players_results.json`
+- high-accuracy single-item e-waste classification
+- transparent hazard-aware routing
+- benchmark-backed research communication
+- project-scoped copilot explanations
+- mixed-scene and video decision support through detector-assisted review
 
-### Clustering
+What the system is not yet:
 
-- `models/clustering/clustering_metrics.json`
-- `models/clustering/clustering_results.json`
-- `models/clustering/graphs/`
+- a custom-trained 18-class e-waste object detector
+- a real-time tracked conveyor-belt actuation system
+- a final industrial control product
 
-### ANN hazard model
+Why this matters:
 
-- `models/ann/ann_results_18cls.json`
-- `models/ann/ann_best_18cls.pth`
-- `models/ann/graphs/`
+- cluster-image and video workflows can still over-segment cluttered scenes or duplicate nearby objects
+- generic pretrained detection proposals do not perfectly align with the 18-class domain
+- final routing decisions in cluttered scenes should still be treated as assisted triage unless a domain-trained detector is added
 
-## 14. Canonical Notebook Order
+## 13. Research Takeaways
 
-The notebooks are retained for exploration and paper traceability.
+- **ConvNeXt-Tiny** is the selected deployed classifier with `98.11%` test accuracy and `0.9811` macro-F1.
+- A **logistic regression classifier on ConvNeXt embeddings** slightly edges the deep model in the competition leaderboard, which indicates strong feature separability.
+- The **hazard ANN** is quantitatively strong with `95.56%` hazard classification accuracy and `R^2 = 0.9859`.
+- **Backpropagation diagnostics** show stable ANN training and meaningful gradient flow.
+- **Clustering analytics** reveal coarse latent structure, with K-Medoids improving internal compactness and K-Means preserving slightly better class-label alignment.
+- The dashboard has moved beyond a toy upload interface into a **workflow-oriented operations console** with single-item, cluster-image, and video-belt review lanes.
 
-Suggested order:
+## 14. Future Work
 
-1. `notebooks/00_merge_classes.ipynb`
-2. `notebooks/00_merge_and_verify.ipynb`
-3. `notebooks/01_data_prep.ipynb`
-4. `notebooks/02_cnn_classification.ipynb`
-5. `notebooks/03_clustering.ipynb`
-6. `notebooks/04_ann_hazard.ipynb`
-7. `notebooks/05_full_comparison.ipynb`
+The most natural next research step is:
 
-Legacy duplicates were moved to `notebooks/_legacy/`.
+- training a dedicated **18-class e-waste detector** for mixed-scene and conveyor-belt deployment
+
+Additional future directions:
+
+- multi-object tracking across video frames
+- detector training from synthetic or weakly labeled e-waste scenes
+- tighter policy automation with operator audit logs
+- domain-tuned generative augmentation studies
+- quantitative evaluation on factory-like belt footage
 
 ## 15. Summary
 
-This repository implements a complete research system for e-waste analysis:
+This repository is now best understood as a **modular e-waste intelligence platform**:
 
-- vision-based component classification
-- downstream hazard-aware reasoning
-- analytical support through clustering and ANN hazard modeling
-- transparent dashboard-based communication
+- `ConvNeXt-Tiny` provides the primary high-accuracy visual classifier
+- the dashboard exposes research and operational workflows
+- the policy layer maps recognition into SDG-linked disposal guidance
+- ANN, clustering, competition, agentic AI, generative AI, and GAN studies extend the system for research reporting and assignment work
 
-Its current strength lies in **single-label benchmarked classification with explainable downstream policy logic**. Its next frontier is **true multi-object detection for mixed e-waste scenes**.
+That combination makes it suitable for both **research communication** and **serious prototype demonstration**, while remaining honest about the gap between classifier-assisted review and full industrial object-detection deployment.
