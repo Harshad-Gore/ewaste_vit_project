@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 import html
+from io import BytesIO
 from pathlib import Path
 import json
 import os
@@ -10,7 +11,7 @@ import random
 import sys
 import tempfile
 import time
-from textwrap import dedent
+from textwrap import dedent, wrap
 from urllib import request as urllib_request
 
 try:
@@ -19,6 +20,8 @@ except Exception:  # pragma: no cover - optional runtime dependency
 	cv2 = None
 
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.patches import FancyBboxPatch
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageColor, ImageDraw
@@ -192,6 +195,7 @@ TONE_CLASS = {
 
 WORKSPACES = [
 	"Operations",
+	"Workflow",
 	"Policy",
 	"Benchmarks",
 	"Analytics",
@@ -963,6 +967,163 @@ def inject_styles() -> None:
 			color: var(--accent-strong);
 		}
 
+		.workflow-map-shell,
+		.mapping-shell,
+		.export-shell {
+			border-radius: var(--radius-lg);
+			border: 1px solid var(--line);
+			background: linear-gradient(180deg, rgba(13, 24, 37, 0.9) 0%, rgba(9, 17, 27, 0.98) 100%);
+			box-shadow: 0 22px 54px rgba(3, 10, 18, 0.24);
+			padding: 1rem 1rem 1.05rem;
+		}
+
+		.workflow-map-grid {
+			display: grid;
+			grid-template-columns: repeat(6, minmax(160px, 1fr));
+			gap: 0.85rem;
+			align-items: stretch;
+		}
+
+		.workflow-stage {
+			position: relative;
+			overflow: visible;
+			min-height: 200px;
+			padding: 0.95rem 0.95rem 0.9rem;
+			border-radius: 22px;
+			border: 1px solid rgba(146, 165, 185, 0.18);
+			background:
+				radial-gradient(circle at top right, rgba(99, 208, 217, 0.16), transparent 42%),
+				linear-gradient(180deg, rgba(15, 28, 41, 0.92) 0%, rgba(10, 18, 28, 0.99) 100%);
+		}
+
+		.workflow-stage::after {
+			content: "";
+			position: absolute;
+			right: -0.72rem;
+			top: 50%;
+			width: 1.05rem;
+			height: 1.05rem;
+			transform: translateY(-50%) rotate(45deg);
+			border-top: 2px solid rgba(99, 208, 217, 0.42);
+			border-right: 2px solid rgba(99, 208, 217, 0.42);
+		}
+
+		.workflow-stage:last-child::after {
+			display: none;
+		}
+
+		.workflow-stage-head {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+			margin-bottom: 0.8rem;
+		}
+
+		.workflow-stage-icon {
+			width: 38px;
+			height: 38px;
+			border-radius: 12px;
+			border: 1px solid rgba(156, 231, 237, 0.18);
+			background: rgba(15, 29, 43, 0.94);
+			color: var(--accent-strong);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
+		}
+
+		.workflow-stage-icon svg {
+			width: 18px;
+			height: 18px;
+			stroke: currentColor;
+			stroke-width: 1.8;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+
+		.workflow-stage-label {
+			font-size: 0.68rem;
+			font-weight: 800;
+			letter-spacing: 0.18em;
+			text-transform: uppercase;
+			color: var(--muted);
+			margin-bottom: 0.12rem;
+		}
+
+		.workflow-stage-title {
+			font-family: 'Sora', sans-serif;
+			font-size: 1rem;
+			line-height: 1.18;
+			color: #f6fbff;
+		}
+
+		.workflow-stage-copy {
+			font-size: 0.88rem;
+			line-height: 1.6;
+			color: #d4e0eb;
+			margin: 0;
+		}
+
+		.workflow-stage-footer {
+			margin-top: 0.85rem;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.45rem;
+		}
+
+		.workflow-pill {
+			display: inline-flex;
+			align-items: center;
+			padding: 0.28rem 0.56rem;
+			border-radius: 999px;
+			border: 1px solid rgba(146, 165, 185, 0.14);
+			background: rgba(15, 28, 41, 0.78);
+			font-size: 0.72rem;
+			font-weight: 800;
+			letter-spacing: 0.02em;
+			color: #dce7f2;
+		}
+
+		.mapping-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+			gap: 0.8rem;
+		}
+
+		.mapping-card {
+			padding: 0.9rem;
+			border-radius: 18px;
+			border: 1px solid rgba(146, 165, 185, 0.16);
+			background: rgba(15, 28, 41, 0.82);
+		}
+
+		.mapping-card-label {
+			font-size: 0.7rem;
+			font-weight: 800;
+			letter-spacing: 0.16em;
+			text-transform: uppercase;
+			color: var(--muted);
+			margin-bottom: 0.2rem;
+		}
+
+		.mapping-card-value {
+			font-family: 'Sora', sans-serif;
+			font-size: 0.98rem;
+			line-height: 1.35;
+			color: #f6fbff;
+		}
+
+		.mapping-card-copy {
+			margin-top: 0.45rem;
+			font-size: 0.86rem;
+			line-height: 1.58;
+			color: #d4e0eb;
+		}
+
+		.export-shell {
+			margin-top: 0.35rem;
+		}
+
 		@keyframes rise-in {
 			from {
 				opacity: 0;
@@ -991,6 +1152,10 @@ def inject_styles() -> None:
 			.metric-value {
 				font-size: 1.38rem;
 			}
+
+			.workflow-map-grid {
+				grid-template-columns: repeat(3, minmax(160px, 1fr));
+			}
 		}
 
 		@media (max-width: 900px) {
@@ -1012,6 +1177,14 @@ def inject_styles() -> None:
 			.panel-copy,
 			.banner-copy {
 				font-size: 0.9rem;
+			}
+
+			.workflow-map-grid {
+				grid-template-columns: 1fr;
+			}
+
+			.workflow-stage::after {
+				display: none;
 			}
 		}
 		</style>
@@ -3176,6 +3349,1448 @@ def build_cluster_operational_checklist(report: Mapping) -> list[str]:
 	return checklist
 
 
+def truncate_text(value: object, limit: int = 88) -> str:
+	text = str(value or "")
+	if len(text) <= limit:
+		return text
+	return text[: max(limit - 3, 0)].rstrip() + "..."
+
+
+def build_processing_note(component: str, hazard_level: str, disposal_pathway: str) -> str:
+	component_key = component.lower()
+	pathway_key = disposal_pathway.lower()
+
+	if "battery" in component_key or "battery" in pathway_key:
+		return "Isolate the cell pack, prevent short-circuit risk, and move the unit into certified battery recovery."
+	if component_key in {"refrigerator", "air-conditioner"} or "refrigerant" in pathway_key:
+		return "Recover refrigerant and gas-bearing assemblies before dismantling the remaining metal and plastic body."
+	if "printer" in component_key or "toner" in pathway_key:
+		return "Separate toner-bearing modules first, then route the shell and PCB content through controlled e-waste recovery."
+	if component_key in {"pcb", "microchip-ic", "passive-component", "resistor", "transistor"} or "metal recovery" in pathway_key:
+		return "Send this electronics-heavy stream through certified metal recovery and residue-safe processing."
+	if "light bulbs" in component_key:
+		return "Keep fragile lamp units isolated and route them through lamp-safe hazardous waste treatment."
+	if hazard_level == "HIGH":
+		return "Keep the item isolated from general throughput and process it only through certified hazardous e-waste handling."
+	if hazard_level == "MEDIUM":
+		return "Route through controlled dismantling and verify condition before releasing the component into recovery lanes."
+	return "Confirm the label, then move the item into low-risk material recovery with normal e-waste segregation."
+
+
+def build_component_route_rows(objects: list[dict]) -> list[dict]:
+	component_map: dict[str, dict] = {}
+	for obj in objects:
+		component = str(obj.get("predicted_class", "Unknown"))
+		confidence = to_float(obj.get("classifier_confidence")) or 0.0
+		hazard = str(obj.get("hazard_level", "UNKNOWN"))
+		entry = component_map.setdefault(
+			component,
+			{
+				"component": component,
+				"count": 0,
+				"hazard_level": hazard,
+				"avg_confidence": 0.0,
+				"peak_confidence": 0.0,
+				"review_required": False,
+				"material_profile": str(obj.get("material_profile", MATERIAL_MAP.get(component, "n/a"))),
+				"disposal_pathway": str(obj.get("disposal_pathway", DISPOSAL_MAP.get(component, "manual review"))),
+				"sdg_target": str(obj.get("sdg_target", "SDG 12.4")),
+			},
+		)
+		entry["count"] += 1
+		entry["avg_confidence"] += confidence
+		entry["peak_confidence"] = max(float(entry["peak_confidence"]), confidence)
+		entry["review_required"] = bool(entry["review_required"]) or bool(obj.get("requires_review", True))
+		if HAZARD_RANK.get(hazard, 0) > HAZARD_RANK.get(str(entry["hazard_level"]), 0):
+			entry["hazard_level"] = hazard
+		if obj.get("material_profile"):
+			entry["material_profile"] = str(obj["material_profile"])
+		if obj.get("disposal_pathway"):
+			entry["disposal_pathway"] = str(obj["disposal_pathway"])
+		if obj.get("sdg_target"):
+			entry["sdg_target"] = str(obj["sdg_target"])
+
+	rows: list[dict] = []
+	for entry in component_map.values():
+		count = max(int(entry["count"]), 1)
+		entry["avg_confidence"] = float(entry["avg_confidence"] / count)
+		entry["process_further"] = build_processing_note(
+			component=str(entry["component"]),
+			hazard_level=str(entry["hazard_level"]),
+			disposal_pathway=str(entry["disposal_pathway"]),
+		)
+		rows.append(entry)
+
+	return sorted(
+		rows,
+		key=lambda item: (
+			HAZARD_RANK.get(str(item["hazard_level"]), 0),
+			int(item["count"]),
+			float(item["peak_confidence"]),
+		),
+		reverse=True,
+	)
+
+
+def build_unified_workflow_summary(last_result: Mapping | None, session_state: Mapping) -> dict | None:
+	if not isinstance(last_result, Mapping) or not last_result:
+		return None
+
+	analysis_kind = str(last_result.get("analysis_kind", "single_item_review"))
+	prediction = last_result.get("prediction", {}) if isinstance(last_result.get("prediction"), Mapping) else {}
+	decision = last_result.get("decision", {}) if isinstance(last_result.get("decision"), Mapping) else {}
+	diagnostics = last_result.get("diagnostics", {}) if isinstance(last_result.get("diagnostics"), Mapping) else {}
+
+	workflow_name_map = {
+		"single_item_review": "Single-item triage",
+		"cluster_image_review": "Cluster image review",
+		"detector_assisted_cluster_review": "Cluster image review",
+		"video_belt_review": "Video belt review",
+	}
+	workflow_name = workflow_name_map.get(analysis_kind, "Workflow review")
+
+	report: Mapping | None = None
+	preview_image: Image.Image | None = None
+	source_label = "active session"
+	normalized_objects: list[dict] = []
+	hazard_counts = {"HIGH": 0, "MEDIUM": 0, "LOW": 0, "UNKNOWN": 0}
+	frame_summaries: list[dict] = []
+	video_meta: dict = {}
+	localization_copy = "The image goes directly into the classifier because the benchmarked lane assumes one dominant component."
+	intake_copy = "Single uploaded image under one-label triage assumptions."
+	detection_scope = "direct classifier"
+	detector_name = "Not required"
+	media_badges: list[str] = []
+	object_count_value = 1
+
+	if analysis_kind == "single_item_review":
+		component = str(prediction.get("class_name", "Unknown"))
+		confidence = to_float(prediction.get("confidence")) or 0.0
+		hazard = str(decision.get("hazard_level", "UNKNOWN"))
+		preview_image = session_state.get("pending_image") if isinstance(session_state.get("pending_image"), Image.Image) else None
+		source_label = str(session_state.get("pending_image_label") or "uploaded image")
+		media_badges = [f"source {source_label}", "direct single-image lane", "no detector stage"]
+		normalized_objects = [
+			{
+				"object_id": "O1",
+				"predicted_class": component,
+				"classifier_confidence": confidence,
+				"detector_label": "direct image intake",
+				"detector_score": 1.0,
+				"hazard_level": hazard,
+				"requires_review": bool(decision.get("requires_human_review", True)),
+				"recommended_route": str(decision.get("short_recommendation", decision.get("disposal_pathway", "manual review"))),
+				"material_profile": str(decision.get("material_profile", MATERIAL_MAP.get(component, "n/a"))),
+				"disposal_pathway": str(decision.get("disposal_pathway", DISPOSAL_MAP.get(component, "manual review"))),
+				"sdg_target": str(decision.get("sdg_target", "SDG 12.4")),
+			}
+		]
+		normalized_objects[0]["process_further"] = build_processing_note(
+			component=component,
+			hazard_level=hazard,
+			disposal_pathway=normalized_objects[0]["disposal_pathway"],
+		)
+		hazard_counts[hazard] = hazard_counts.get(hazard, 0) + 1
+	else:
+		report_key = "video_report" if analysis_kind == "video_belt_review" else "cluster_report"
+		report = last_result.get(report_key) if isinstance(last_result.get(report_key), Mapping) else None
+		if analysis_kind == "video_belt_review":
+			intake_copy = "Uploaded conveyor-belt footage sampled at a controlled frame interval."
+			detector_name = str(report.get("detector_name", "Pretrained detector")) if report else "Pretrained detector"
+			detection_scope = str(report.get("detection_scope", "detector-assisted")) if report else "detector-assisted"
+			video_meta = dict(report.get("video_meta", {})) if report and isinstance(report.get("video_meta"), Mapping) else {}
+			frame_summaries = list(report.get("frame_summaries", [])) if report and isinstance(report.get("frame_summaries"), list) else []
+			first_frame_report = report.get("frame_reports", []) if report and isinstance(report.get("frame_reports"), list) else []
+			preview_image = first_frame_report[0].get("overlay_image") if first_frame_report else None
+			source_label = str(session_state.get("pending_video_name") or "uploaded video")
+			sample_every = to_float(video_meta.get("sample_every_seconds"))
+			localization_copy = (
+				f"Frames are sampled{' every ' + format_float(sample_every, 2) + ' s' if sample_every is not None else ''}, "
+				"then hybrid localization uses pretrained detector proposals and classifier scene evidence before crop classification."
+			)
+			media_badges = [
+				f"source {source_label}",
+				f"sampled frames {len(frame_summaries)}",
+				"frame-wise aggregation",
+			]
+		else:
+			intake_copy = "Mixed-object e-waste image under detector-assisted review."
+			detector_name = str(report.get("detector_name", "Pretrained detector")) if report else "Pretrained detector"
+			detection_scope = str(report.get("detection_scope", "detector-assisted")) if report else "detector-assisted"
+			preview_image = report.get("overlay_image") if report and isinstance(report.get("overlay_image"), Image.Image) else None
+			source_label = str(session_state.get("cluster_pending_label") or "cluster image")
+			localization_copy = (
+				f"{detector_name} proposes candidate objects and the classifier scene scan helps recover mixed small parts "
+				f"before each retained crop is classified."
+			)
+			media_badges = [
+				f"source {source_label}",
+				f"scope {detection_scope}",
+				"detector + crop classifier",
+			]
+
+		if report:
+			object_count_value = int(report.get("object_count", 0) or 0)
+			hazard_counts = dict(report.get("hazard_counts", hazard_counts)) if isinstance(report.get("hazard_counts"), Mapping) else hazard_counts
+			for obj in report.get("objects", []):
+				if not isinstance(obj, Mapping):
+					continue
+				pred = obj.get("prediction", {}) if isinstance(obj.get("prediction"), Mapping) else {}
+				obj_decision = obj.get("decision", {}) if isinstance(obj.get("decision"), Mapping) else {}
+				component = str(pred.get("class_name", "Unknown"))
+				pathway = str(obj_decision.get("short_recommendation", obj_decision.get("disposal_pathway", DISPOSAL_MAP.get(component, "manual review"))))
+				hazard = str(obj.get("hazard_level", obj_decision.get("hazard_level", "UNKNOWN")))
+				normalized_row = {
+					"object_id": str(obj.get("object_id", f"O{len(normalized_objects) + 1}")),
+					"predicted_class": component,
+					"classifier_confidence": to_float(pred.get("confidence")) or 0.0,
+					"detector_label": str(obj.get("detector_label", "detector proposal")),
+					"detector_score": to_float(obj.get("detector_score")) or 0.0,
+					"hazard_level": hazard,
+					"requires_review": bool(obj.get("needs_review", obj_decision.get("requires_human_review", True))),
+					"recommended_route": pathway,
+					"material_profile": str(obj_decision.get("material_profile", MATERIAL_MAP.get(component, "n/a"))),
+					"disposal_pathway": pathway,
+					"sdg_target": str(obj_decision.get("sdg_target", "SDG 12.4")),
+					"frame_id": obj.get("frame_id"),
+					"timestamp_s": to_float(obj.get("timestamp_s")),
+				}
+				normalized_row["process_further"] = build_processing_note(
+					component=component,
+					hazard_level=hazard,
+					disposal_pathway=normalized_row["disposal_pathway"],
+				)
+				normalized_objects.append(normalized_row)
+
+	if not normalized_objects:
+		component = str(decision.get("component", prediction.get("class_name", "Manual review")))
+		pathway = str(decision.get("short_recommendation", decision.get("disposal_pathway", "manual review")))
+		hazard = str(decision.get("hazard_level", "UNKNOWN"))
+		normalized_objects = [
+			{
+				"object_id": "M1",
+				"predicted_class": component,
+				"classifier_confidence": to_float(prediction.get("confidence")) or 0.0,
+				"detector_label": "no retained object",
+				"detector_score": 0.0,
+				"hazard_level": hazard,
+				"requires_review": bool(decision.get("requires_human_review", True)),
+				"recommended_route": pathway,
+				"material_profile": str(decision.get("material_profile", "manual inspection required")),
+				"disposal_pathway": pathway,
+				"sdg_target": str(decision.get("sdg_target", "SDG 12.4")),
+				"process_further": build_processing_note(component=component, hazard_level=hazard, disposal_pathway=pathway),
+				"frame_id": None,
+				"timestamp_s": None,
+			}
+		]
+
+	component_rows = build_component_route_rows(normalized_objects)
+	route_rows = build_route_distribution_rows(component_rows)
+	stream_rows = build_operational_stream_rows(component_rows)
+	dominant_component = str(prediction.get("class_name", component_rows[0]["component"] if component_rows else "n/a"))
+	dominant_confidence = to_float(prediction.get("confidence")) or (to_float(component_rows[0]["peak_confidence"]) if component_rows else 0.0) or 0.0
+	unique_components = len(component_rows)
+	review_required = bool(decision.get("requires_human_review", True))
+	route_count = len({row["disposal_pathway"] for row in component_rows if row.get("disposal_pathway")})
+	highest_hazard = str(decision.get("hazard_level", "UNKNOWN"))
+	high_hazard_count = int(hazard_counts.get("HIGH", 0) or 0)
+	medium_hazard_count = int(hazard_counts.get("MEDIUM", 0) or 0)
+	low_hazard_count = int(hazard_counts.get("LOW", 0) or 0)
+	review_object_count = sum(1 for row in normalized_objects if row.get("requires_review"))
+	automation_clear_rate = 0.0 if not normalized_objects else max(len(normalized_objects) - review_object_count, 0) / len(normalized_objects)
+	average_confidence = 0.0 if not normalized_objects else sum(float(row.get("classifier_confidence", 0.0) or 0.0) for row in normalized_objects) / len(normalized_objects)
+	detector_scores = [float(row.get("detector_score", 0.0) or 0.0) for row in normalized_objects if float(row.get("detector_score", 0.0) or 0.0) > 0]
+	average_detector_score = (sum(detector_scores) / len(detector_scores)) if detector_scores else None
+	objects_per_frame = (object_count_value / len(frame_summaries)) if frame_summaries else None
+	hazard_mix_rows = []
+	for label in ["HIGH", "MEDIUM", "LOW", "UNKNOWN"]:
+		count = int(hazard_counts.get(label, 0) or 0)
+		hazard_mix_rows.append(
+			{
+				"hazard": label,
+				"count": count,
+				"share": (count / max(object_count_value, 1)) if object_count_value else 0.0,
+			}
+		)
+	process_notes = [f"{row.get('component', 'n/a')}: {row.get('process_further', 'n/a')}" for row in component_rows[:5]]
+	sdg_targets = sorted({str(row.get("sdg_target", "SDG 12.4")) for row in component_rows if row.get("sdg_target")})
+	sdg_alignment_copy = (
+		f"This run supports SDG 12.4 by separating {object_count_value} retained object event(s) into {route_count} explicit downstream stream(s), "
+		f"preserving auditable hazard logic for {unique_components} component group(s), and escalating {review_object_count} item(s) for human review."
+	)
+	workflow_headline = str(diagnostics.get("headline", "Workflow summary"))
+	workflow_detail = str(diagnostics.get("detail", "No diagnostics available."))
+
+	stage_cards = [
+		{
+			"label": "01 Intake",
+			"title": workflow_name,
+			"copy": intake_copy,
+			"footer": [source_label, f"latency {last_result.get('elapsed_ms', 'n/a')} ms"],
+			"icon": "gallery",
+		},
+		{
+			"label": "02 Localization",
+			"title": "Object discovery lane",
+			"copy": localization_copy,
+			"footer": (
+				["direct classifier", "1 dominant object assumption"]
+				if analysis_kind == "single_item_review"
+				else [detector_name, f"retained {object_count_value} object event(s)"]
+			),
+			"icon": "cluster" if analysis_kind != "single_item_review" else "review",
+		},
+		{
+			"label": "03 Classification",
+			"title": "ConvNeXt-Tiny evidence",
+			"copy": (
+				f"The classifier assigns component labels to {'the full image' if analysis_kind == 'single_item_review' else 'each retained crop'}, "
+				f"with dominant evidence for {dominant_component} at {dominant_confidence:.2%}."
+			),
+			"footer": [f"top class {dominant_component}", f"confidence {dominant_confidence:.2%}"],
+			"icon": "cpu",
+		},
+		{
+			"label": "04 Hard Mapping",
+			"title": "Hazard and material registry",
+			"copy": (
+				"Predicted components are matched against fixed hazard, material, disposal, and SDG mappings so the downstream logic stays explicit and auditable."
+			),
+			"footer": [f"unique components {unique_components}", f"route patterns {route_count}"],
+			"icon": "database",
+		},
+		{
+			"label": "05 Decision Support",
+			"title": "Routing and review control",
+			"copy": truncate_text(decision.get("explanation", "No decision explanation available."), 180),
+			"footer": [
+				f"highest hazard {highest_hazard}",
+				"human review required" if review_required else "human review clear",
+			],
+			"icon": "route",
+		},
+		{
+			"label": "06 Output",
+			"title": "Operator-ready dossier",
+			"copy": (
+				"This page consolidates visuals, object summaries, hard mappings, materials, disposal actions, and a downloadable PDF report for faculty or operator review."
+			),
+			"footer": ["workflow atlas", "PDF export", "audit-ready summary"],
+			"icon": "chart",
+		},
+	]
+
+	component_frame = pd.DataFrame(component_rows)
+	if not component_frame.empty:
+		component_frame["avg_confidence"] = component_frame["avg_confidence"].map(lambda x: f"{float(x):.2%}")
+		component_frame["peak_confidence"] = component_frame["peak_confidence"].map(lambda x: f"{float(x):.2%}")
+		component_frame["review_required"] = component_frame["review_required"].map(lambda x: "Yes" if x else "No")
+
+	object_frame = pd.DataFrame(normalized_objects)
+	if not object_frame.empty:
+		object_frame["classifier_confidence"] = object_frame["classifier_confidence"].map(lambda x: f"{float(x):.2%}")
+		object_frame["detector_score"] = object_frame["detector_score"].map(lambda x: f"{float(x):.2%}")
+		if "timestamp_s" in object_frame.columns:
+			object_frame["timestamp_s"] = object_frame["timestamp_s"].map(lambda x: "" if x is None else f"{float(x):.2f}")
+		object_frame["requires_review"] = object_frame["requires_review"].map(lambda x: "Yes" if x else "No")
+
+	export_objects = []
+	for row in normalized_objects:
+		export_row = dict(row)
+		export_objects.append(export_row)
+
+	export_payload = {
+		"analysis_kind": analysis_kind,
+		"workflow_name": workflow_name,
+		"source_label": source_label,
+		"prediction": prediction,
+		"decision": decision,
+		"diagnostics": diagnostics,
+		"components": component_rows,
+		"objects": export_objects,
+		"hazard_counts": hazard_counts,
+		"frame_summaries": frame_summaries,
+		"video_meta": video_meta,
+		"stage_cards": stage_cards,
+	}
+
+	return {
+		"analysis_kind": analysis_kind,
+		"workflow_name": workflow_name,
+		"source_label": source_label,
+		"preview_image": preview_image,
+		"prediction": prediction,
+		"decision": decision,
+		"diagnostics": diagnostics,
+		"headline": workflow_headline,
+		"detail": workflow_detail,
+		"media_badges": media_badges,
+		"stage_cards": stage_cards,
+		"component_rows": component_rows,
+		"route_rows": route_rows,
+		"stream_rows": stream_rows,
+		"hazard_mix_rows": hazard_mix_rows,
+		"component_frame": component_frame,
+		"object_frame": object_frame,
+		"objects": normalized_objects,
+		"hazard_counts": hazard_counts,
+		"checklist": (
+			build_cluster_operational_checklist(report or last_result)
+			if analysis_kind != "single_item_review"
+			else build_operational_checklist(decision, diagnostics)
+		),
+		"trace_steps": decision.get("tool_trace", []) if isinstance(decision.get("tool_trace"), list) else [],
+		"frame_summaries": frame_summaries,
+		"video_meta": video_meta,
+		"dominant_component": dominant_component,
+		"dominant_confidence": dominant_confidence,
+		"object_count_value": object_count_value if analysis_kind != "single_item_review" else 1,
+		"unique_components": unique_components,
+		"highest_hazard": highest_hazard,
+		"route_count": route_count,
+		"high_hazard_count": high_hazard_count,
+		"medium_hazard_count": medium_hazard_count,
+		"low_hazard_count": low_hazard_count,
+		"review_object_count": review_object_count,
+		"automation_clear_rate": automation_clear_rate,
+		"average_confidence": average_confidence,
+		"average_detector_score": average_detector_score,
+		"objects_per_frame": objects_per_frame,
+		"process_notes": process_notes,
+		"sdg_targets": sdg_targets,
+		"sdg_alignment_copy": sdg_alignment_copy,
+		"review_required": review_required,
+		"export_payload": export_payload,
+	}
+
+
+def render_mapping_cards(component_rows: list[dict]) -> None:
+	card_markup = []
+	for row in component_rows[:4]:
+		card_markup.append(
+			dedent(
+				f"""
+				<div class="mapping-card">
+					<div class="mapping-card-label">{escape_html(row.get('component', 'Component'))}</div>
+					<div class="mapping-card-value">{escape_html(row.get('hazard_level', 'UNKNOWN'))} hazard | x{escape_html(row.get('count', 0))}</div>
+					<div class="mapping-card-copy"><strong>Material:</strong> {escape_html(row.get('material_profile', 'n/a'))}</div>
+					<div class="mapping-card-copy"><strong>Route:</strong> {escape_html(row.get('disposal_pathway', 'n/a'))}</div>
+					<div class="mapping-card-copy"><strong>Process next:</strong> {escape_html(row.get('process_further', 'n/a'))}</div>
+				</div>
+				"""
+			).strip()
+		)
+
+	render_html(
+		f"""
+		<div class="mapping-shell">
+			<div class="mapping-grid">{''.join(card_markup)}</div>
+		</div>
+		"""
+	)
+
+
+def build_route_distribution_rows(component_rows: list[dict]) -> list[dict]:
+	route_map: dict[str, int] = {}
+	for row in component_rows:
+		pathway = str(row.get("disposal_pathway", "manual review"))
+		route_map[pathway] = route_map.get(pathway, 0) + int(row.get("count", 0) or 0)
+	return sorted(
+		[{"route": route, "count": count} for route, count in route_map.items()],
+		key=lambda item: item["count"],
+		reverse=True,
+	)
+
+
+def infer_operational_stream(component: str, disposal_pathway: str, hazard_level: str) -> str:
+	component_key = component.lower()
+	pathway_key = disposal_pathway.lower()
+	hazard_key = hazard_level.upper()
+
+	if "battery" in component_key or "battery" in pathway_key:
+		return "Battery recovery"
+	if component_key in {"refrigerator", "air-conditioner"} or "refrigerant" in pathway_key or "gas" in pathway_key:
+		return "Refrigerant recovery"
+	if "light bulb" in component_key or "lamp" in pathway_key:
+		return "Lamp hazardous handling"
+	if component_key in {"pcb", "microchip-ic", "passive-component", "resistor", "transistor"} or "metal recovery" in pathway_key:
+		return "PCB and metal recovery"
+	if "manual" in pathway_key or "review" in pathway_key:
+		return "Manual review gate"
+	if "dismant" in pathway_key:
+		return "Controlled dismantling"
+	if hazard_key == "HIGH":
+		return "Certified hazardous stream"
+	return "General e-waste recovery"
+
+
+def build_operational_stream_rows(component_rows: list[dict]) -> list[dict]:
+	stream_map: dict[str, int] = {}
+	for row in component_rows:
+		stream = infer_operational_stream(
+			component=str(row.get("component", "Unknown")),
+			disposal_pathway=str(row.get("disposal_pathway", "manual review")),
+			hazard_level=str(row.get("hazard_level", "UNKNOWN")),
+		)
+		stream_map[stream] = stream_map.get(stream, 0) + int(row.get("count", 0) or 0)
+	return sorted(
+		[{"stream": stream, "count": count} for stream, count in stream_map.items()],
+		key=lambda item: item["count"],
+		reverse=True,
+	)
+
+
+def build_component_confidence_rows(component_rows: list[dict]) -> list[dict]:
+	rows: list[dict] = []
+	for row in component_rows:
+		rows.append(
+			{
+				"component": str(row.get("component", "Unknown")),
+				"avg_confidence": float(to_float(row.get("avg_confidence")) or 0.0),
+				"hazard_level": str(row.get("hazard_level", "UNKNOWN")),
+			}
+		)
+	return sorted(rows, key=lambda item: item["avg_confidence"], reverse=True)
+
+
+def style_plot_axis(ax: plt.Axes, title: str | None = None) -> None:
+	ax.set_facecolor("#102131")
+	for spine in ax.spines.values():
+		spine.set_color("#35506b")
+		spine.set_linewidth(1.0)
+	ax.tick_params(colors="#dce7f2", labelsize=9)
+	ax.yaxis.label.set_color("#dce7f2")
+	ax.xaxis.label.set_color("#dce7f2")
+	if title:
+		ax.set_title(title, color="#f7fbff", fontsize=12, fontweight="bold", pad=10)
+
+
+def wrap_plot_text(value: object, width: int, max_lines: int | None = None) -> list[str]:
+	lines = wrap(str(value or ""), width=width) or [""]
+	if max_lines is not None and len(lines) > max_lines:
+		trimmed = lines[:max_lines]
+		trimmed[-1] = truncate_text(" ".join(lines[max_lines - 1 :]), width)
+		return trimmed
+	return lines
+
+
+def draw_canvas_stat_card(
+	ax: plt.Axes,
+	*,
+	x: float,
+	y: float,
+	w: float,
+	h: float,
+	title: str,
+	value: str,
+	detail: str,
+	accent: str,
+) -> None:
+	card = FancyBboxPatch(
+		(x, y),
+		w,
+		h,
+		boxstyle="round,pad=0.012,rounding_size=0.024",
+		linewidth=1.35,
+		edgecolor=accent,
+		facecolor="#102131",
+	)
+	ax.add_patch(card)
+	ax.text(x + 0.018, y + h - 0.03, title.upper(), color="#92a4b8", fontsize=8.5, fontweight="bold", va="top")
+	ax.text(x + 0.018, y + h - 0.075, value, color="#f7fbff", fontsize=16, fontweight="bold", va="top")
+	ax.text(x + 0.018, y + 0.028, detail, color="#d5e2ee", fontsize=8.8, va="bottom")
+
+
+def build_workflow_diagram_figure(summary: Mapping, *, pdf_mode: bool = False) -> plt.Figure:
+	stage_cards = list(summary.get("stage_cards", []))
+	fig = plt.figure(figsize=(11.69, 8.27) if pdf_mode else (12.8, 8.6), facecolor="#071018")
+	ax = fig.add_axes([0, 0, 1, 1])
+	ax.set_axis_off()
+	ax.set_xlim(0, 1)
+	ax.set_ylim(0, 1)
+
+	ax.text(0.055, 0.955, "Workflow Blueprint", color="#f7fbff", fontsize=22 if pdf_mode else 24, fontweight="bold", va="top")
+	ax.text(
+		0.055,
+		0.918,
+		f"{summary.get('workflow_name', 'Workflow review')} | source: {summary.get('source_label', 'active session')}",
+		color="#9ce7ed",
+		fontsize=11 if pdf_mode else 12,
+		va="top",
+	)
+
+	stage_accents = ["#63d0d9", "#7ad9e0", "#3cc58d", "#f4b168", "#f38b59", "#ff6f61"]
+	box_x = 0.1
+	box_w = 0.8
+	box_h = 0.102
+	start_y = 0.83
+	step_y = 0.12
+
+	for idx, card in enumerate(stage_cards[:6]):
+		y = start_y - idx * step_y
+		accent = stage_accents[min(idx, len(stage_accents) - 1)]
+		box = FancyBboxPatch(
+			(box_x, y - box_h),
+			box_w,
+			box_h,
+			boxstyle="round,pad=0.012,rounding_size=0.025",
+			linewidth=1.6,
+			edgecolor=accent,
+			facecolor="#102131",
+		)
+		ax.add_patch(box)
+		ax.add_patch(
+			FancyBboxPatch(
+				(box_x + 0.012, y - box_h + 0.018),
+				0.062,
+				box_h - 0.036,
+				boxstyle="round,pad=0.01,rounding_size=0.02",
+				linewidth=0,
+				facecolor=accent,
+				alpha=0.18,
+			)
+		)
+		ax.text(box_x + 0.028, y - 0.044, f"{idx + 1:02d}", color=accent, fontsize=16, fontweight="bold", va="center")
+		ax.text(box_x + 0.092, y - 0.026, str(card.get("label", f"Stage {idx + 1}")).upper(), color="#92a4b8", fontsize=8.5, fontweight="bold", va="top")
+		ax.text(box_x + 0.092, y - 0.05, str(card.get("title", "")), color="#f7fbff", fontsize=13, fontweight="bold", va="top")
+		copy_lines = wrap_plot_text(card.get("copy", ""), width=84 if pdf_mode else 88, max_lines=3)
+		ax.text(box_x + 0.092, y - 0.077, "\n".join(copy_lines), color="#d5e2ee", fontsize=9.2, va="top", linespacing=1.25)
+		footer = "  |  ".join(str(item) for item in card.get("footer", [])[:2] if str(item).strip())
+		ax.text(box_x + box_w - 0.016, y - box_h + 0.018, footer, color=accent, fontsize=8.4, fontweight="bold", va="bottom", ha="right")
+
+		if idx < min(len(stage_cards), 6) - 1:
+			ax.annotate(
+				"",
+				xy=(0.5, y - box_h - 0.008),
+				xytext=(0.5, y - box_h - 0.035),
+				arrowprops=dict(arrowstyle="-|>", color=accent, lw=1.8, shrinkA=0, shrinkB=0),
+			)
+
+	ax.text(
+		0.055,
+		0.07,
+		"Plant interpretation: the system ingests an image or belt segment, localizes or isolates evidence, maps every retained component to hard hazard rules, and ends with an operator-facing disposal action.",
+		color="#d5e2ee",
+		fontsize=10,
+	)
+	return fig
+
+
+def build_workflow_operations_figure(summary: Mapping, *, pdf_mode: bool = False) -> plt.Figure:
+	fig = plt.figure(figsize=(11.69, 8.27) if pdf_mode else (13.2, 7.8), facecolor="#071018")
+	gs = fig.add_gridspec(2, 2, hspace=0.22, wspace=0.18)
+	preview_image = summary.get("preview_image")
+	component_rows = list(summary.get("component_rows", []))
+	frame_summaries = list(summary.get("frame_summaries", []))
+	prediction = summary.get("prediction", {}) if isinstance(summary.get("prediction"), Mapping) else {}
+	decision = summary.get("decision", {}) if isinstance(summary.get("decision"), Mapping) else {}
+	hazard_counts = dict(summary.get("hazard_counts", {})) if isinstance(summary.get("hazard_counts"), Mapping) else {}
+	objects_per_frame = to_float(summary.get("objects_per_frame"))
+	average_detector_score = to_float(summary.get("average_detector_score"))
+
+	ax_image = fig.add_subplot(gs[0, 0])
+	if isinstance(preview_image, Image.Image):
+		ax_image.imshow(np.asarray(preview_image.convert("RGB")))
+		ax_image.set_xticks([])
+		ax_image.set_yticks([])
+		style_plot_axis(ax_image, "Observed evidence")
+	else:
+		ax_image.set_axis_off()
+		ax_image.set_facecolor("#102131")
+		ax_image.text(0.5, 0.55, "No preview image\navailable for this run", ha="center", va="center", color="#dce7f2", fontsize=14, fontweight="bold")
+
+	ax_text = fig.add_subplot(gs[0, 1])
+	ax_text.set_axis_off()
+	ax_text.set_facecolor("#102131")
+	ax_text.text(0.0, 1.0, "Operations Snapshot", color="#f7fbff", fontsize=16, fontweight="bold", va="top")
+	snapshot_lines = [
+		f"Workflow: {summary.get('workflow_name', 'n/a')} | source: {summary.get('source_label', 'n/a')}",
+		f"Retained objects / events: {summary.get('object_count_value', 0)} | unique components: {summary.get('unique_components', 0)}",
+		f"Dominant class: {summary.get('dominant_component', 'n/a')} at {format_pct(to_float(summary.get('dominant_confidence')))}",
+		f"Average classifier confidence: {format_pct(to_float(summary.get('average_confidence')))}"
+		+ (f" | detector score: {format_pct(average_detector_score)}" if average_detector_score is not None else ""),
+		f"Automation clear rate: {format_pct(to_float(summary.get('automation_clear_rate')))} | review burden: {summary.get('review_object_count', 0)} item(s)",
+		f"Highest hazard: {summary.get('highest_hazard', 'UNKNOWN')} | route patterns: {summary.get('route_count', 0)}"
+		+ (f" | objects/frame: {format_float(objects_per_frame, 2)}" if objects_per_frame is not None else ""),
+	]
+	ax_text.text(0.0, 0.86, "\n".join(snapshot_lines), color="#d5e2ee", fontsize=10.5, va="top", linespacing=1.35)
+	ax_text.text(0.0, 0.34, "Decision support", color="#9ce7ed", fontsize=12, fontweight="bold", va="top")
+	ax_text.text(
+		0.0,
+		0.29,
+		"\n".join(wrap_plot_text(decision.get("short_recommendation", "No route available."), width=48, max_lines=4)),
+		color="#f7fbff",
+		fontsize=13,
+		fontweight="bold",
+		va="top",
+	)
+	ax_text.text(
+		0.0,
+		0.12,
+		"\n".join(wrap_plot_text(summary.get("detail", ""), width=58, max_lines=5)),
+		color="#d5e2ee",
+		fontsize=9.6,
+		va="top",
+	)
+
+	ax_hazard = fig.add_subplot(gs[1, 0])
+	hazard_labels = ["HIGH", "MEDIUM", "LOW", "UNKNOWN"]
+	hazard_values = [int(hazard_counts.get(label, 0) or 0) for label in hazard_labels]
+	hazard_colors = [HAZARD_COLOR.get(label, "#94a3b8") for label in hazard_labels]
+	ax_hazard.bar(hazard_labels, hazard_values, color=hazard_colors, width=0.58)
+	style_plot_axis(ax_hazard, "Hazard footprint")
+	ax_hazard.set_ylabel("objects / events")
+	ax_hazard.grid(axis="y", alpha=0.18, color="#6f879e")
+
+	ax_secondary = fig.add_subplot(gs[1, 1])
+	if summary.get("analysis_kind") == "video_belt_review" and frame_summaries:
+		timestamps = [float(item.get("timestamp_s", 0.0)) for item in frame_summaries]
+		counts = [int(item.get("detected_objects", 0) or 0) for item in frame_summaries]
+		review_flags = [1 if item.get("requires_review") else 0 for item in frame_summaries]
+		ax_secondary.plot(timestamps, counts, color="#63d0d9", linewidth=2.3, marker="o")
+		ax_secondary.scatter(
+			[t for t, flag in zip(timestamps, review_flags) if flag],
+			[c for c, flag in zip(counts, review_flags) if flag],
+			color="#ff6f61",
+			s=42,
+			label="review frame",
+			zorder=3,
+		)
+		style_plot_axis(ax_secondary, "Frame-level activity")
+		ax_secondary.set_xlabel("timestamp (s)")
+		ax_secondary.set_ylabel("object events")
+		ax_secondary.grid(alpha=0.18, color="#6f879e")
+		if any(review_flags):
+			ax_secondary.legend(facecolor="#102131", edgecolor="#35506b", labelcolor="#dce7f2")
+	elif component_rows:
+		top_components = component_rows[:6]
+		ax_secondary.barh(
+			list(reversed([truncate_text(row.get("component", ""), 18) for row in top_components])),
+			list(reversed([int(row.get("count", 0) or 0) for row in top_components])),
+			color="#63d0d9",
+		)
+		style_plot_axis(ax_secondary, "Component mix")
+		ax_secondary.set_xlabel("count")
+		ax_secondary.grid(axis="x", alpha=0.18, color="#6f879e")
+	else:
+		top_predictions = prediction.get("top_predictions", []) if isinstance(prediction.get("top_predictions"), list) else []
+		labels = [truncate_text(item.get("class_name", ""), 18) for item in top_predictions[:5]]
+		values = [float(to_float(item.get("confidence")) or 0.0) for item in top_predictions[:5]]
+		ax_secondary.barh(list(reversed(labels)), list(reversed(values)), color="#63d0d9")
+		style_plot_axis(ax_secondary, "Confidence spread")
+		ax_secondary.set_xlabel("confidence")
+		ax_secondary.set_xlim(0, 1)
+		ax_secondary.grid(axis="x", alpha=0.18, color="#6f879e")
+
+	fig.suptitle("Plant Operations View", x=0.06, y=0.985, ha="left", color="#f7fbff", fontsize=18, fontweight="bold")
+	return fig
+
+
+def build_component_intelligence_figure(summary: Mapping, *, pdf_mode: bool = False) -> plt.Figure:
+	component_rows = list(summary.get("component_rows", []))
+	route_rows = list(summary.get("route_rows", [])) or build_route_distribution_rows(component_rows)
+	stream_rows = list(summary.get("stream_rows", [])) or build_operational_stream_rows(component_rows)
+	confidence_rows = build_component_confidence_rows(component_rows)
+	hazard_mix_rows = list(summary.get("hazard_mix_rows", []))
+	process_notes = list(summary.get("process_notes", []))
+	fig = plt.figure(figsize=(11.69, 8.27) if pdf_mode else (13.2, 8.6), facecolor="#071018")
+	gs = fig.add_gridspec(2, 2, hspace=0.28, wspace=0.18)
+
+	ax_route = fig.add_subplot(gs[0, 0])
+	if route_rows:
+		route_labels = list(reversed([truncate_text(row["route"], 32) for row in route_rows[:6]]))
+		route_values = list(reversed([int(row["count"]) for row in route_rows[:6]]))
+		ax_route.barh(route_labels, route_values, color="#f38b59")
+		style_plot_axis(ax_route, "Downstream route distribution")
+		ax_route.set_xlabel("objects / events")
+		ax_route.grid(axis="x", alpha=0.18, color="#6f879e")
+	else:
+		ax_route.set_axis_off()
+		ax_route.text(0.5, 0.5, "No route distribution available", ha="center", va="center", color="#dce7f2")
+
+	ax_hazard = fig.add_subplot(gs[0, 1])
+	ax_hazard.set_facecolor("#102131")
+	ax_hazard.set_title("Hazard composition", color="#f7fbff", fontsize=12, fontweight="bold", pad=10)
+	nonzero_hazards = [row for row in hazard_mix_rows if int(row.get("count", 0) or 0) > 0]
+	if nonzero_hazards:
+		labels = [str(row["hazard"]) for row in nonzero_hazards]
+		values = [int(row["count"]) for row in nonzero_hazards]
+		colors = [HAZARD_COLOR.get(label, "#94a3b8") for label in labels]
+		wedges, _ = ax_hazard.pie(
+			values,
+			colors=colors,
+			startangle=90,
+			counterclock=False,
+			wedgeprops=dict(width=0.38, edgecolor="#071018", linewidth=1.2),
+		)
+		ax_hazard.text(0.0, 0.1, f"{sum(values)}", ha="center", va="center", color="#f7fbff", fontsize=22, fontweight="bold")
+		ax_hazard.text(0.0, -0.12, "retained events", ha="center", va="center", color="#92a4b8", fontsize=10)
+		legend = ax_hazard.legend(
+			wedges,
+			[f"{label} ({value})" for label, value in zip(labels, values)],
+			loc="lower center",
+			bbox_to_anchor=(0.5, -0.08),
+			ncol=2,
+			frameon=False,
+			fontsize=9,
+		)
+		for text in legend.get_texts():
+			text.set_color("#dce7f2")
+	else:
+		ax_hazard.text(0.5, 0.5, "No hazard mix available", ha="center", va="center", color="#dce7f2", transform=ax_hazard.transAxes)
+	ax_hazard.set_aspect("equal")
+
+	ax_conf = fig.add_subplot(gs[1, 0])
+	if confidence_rows:
+		labels = list(reversed([truncate_text(row["component"], 18) for row in confidence_rows[:8]]))
+		values = list(reversed([float(row["avg_confidence"]) for row in confidence_rows[:8]]))
+		colors = list(reversed([HAZARD_COLOR.get(str(row["hazard_level"]), "#94a3b8") for row in confidence_rows[:8]]))
+		ax_conf.barh(labels, values, color=colors)
+		style_plot_axis(ax_conf, "Average confidence by component")
+		ax_conf.set_xlabel("confidence")
+		ax_conf.set_xlim(0, 1)
+		ax_conf.grid(axis="x", alpha=0.18, color="#6f879e")
+	else:
+		ax_conf.set_axis_off()
+		ax_conf.text(0.5, 0.5, "No component confidence view available", ha="center", va="center", color="#dce7f2")
+
+	ax_panel = fig.add_subplot(gs[1, 1])
+	ax_panel.set_axis_off()
+	ax_panel.set_xlim(0, 1)
+	ax_panel.set_ylim(0, 1)
+	ax_panel.set_facecolor("#102131")
+	ax_panel.text(0.0, 0.98, "Plant-readiness intelligence", color="#f7fbff", fontsize=14, fontweight="bold", va="top")
+
+	draw_canvas_stat_card(
+		ax_panel,
+		x=0.0,
+		y=0.68,
+		w=0.47,
+		h=0.2,
+		title="Automation clear",
+		value=format_pct(to_float(summary.get("automation_clear_rate"))),
+		detail="share of retained events not blocked for review",
+		accent="#3cc58d",
+	)
+	draw_canvas_stat_card(
+		ax_panel,
+		x=0.51,
+		y=0.68,
+		w=0.47,
+		h=0.2,
+		title="Review burden",
+		value=f"{summary.get('review_object_count', 0)}/{summary.get('object_count_value', 0)}",
+		detail="items that still need operator confirmation",
+		accent="#f4b168",
+	)
+	draw_canvas_stat_card(
+		ax_panel,
+		x=0.0,
+		y=0.43,
+		w=0.47,
+		h=0.18,
+		title="Avg confidence",
+		value=format_pct(to_float(summary.get("average_confidence"))),
+		detail="mean crop / image confidence across retained evidence",
+		accent="#63d0d9",
+	)
+	draw_canvas_stat_card(
+		ax_panel,
+		x=0.51,
+		y=0.43,
+		w=0.47,
+		h=0.18,
+		title="Plant streams",
+		value=str(len(stream_rows)),
+		detail="distinct downstream handling lanes activated",
+		accent="#f38b59",
+	)
+
+	ax_panel.text(0.0, 0.34, "Operational streams", color="#9ce7ed", fontsize=11, fontweight="bold", va="top")
+	if stream_rows:
+		stream_lines = [f"{idx}. {row['stream']} -> {row['count']} event(s)" for idx, row in enumerate(stream_rows[:4], start=1)]
+		ax_panel.text(0.0, 0.305, "\n".join(stream_lines), color="#d5e2ee", fontsize=9.5, va="top", linespacing=1.45)
+	else:
+		ax_panel.text(0.0, 0.305, "No operational streams were generated.", color="#d5e2ee", fontsize=9.5, va="top")
+
+	ax_panel.text(0.0, 0.145, "Process notes", color="#9ce7ed", fontsize=11, fontweight="bold", va="top")
+	if process_notes:
+		process_lines = [f"- {truncate_text(note, 82)}" for note in process_notes[:3]]
+		ax_panel.text(0.0, 0.11, "\n".join(process_lines), color="#d5e2ee", fontsize=9.4, va="top", linespacing=1.4)
+	else:
+		ax_panel.text(0.0, 0.11, "No downstream process notes available.", color="#d5e2ee", fontsize=9.4, va="top")
+
+	fig.suptitle("Component and Routing Intelligence", x=0.06, y=0.98, ha="left", color="#f7fbff", fontsize=17, fontweight="bold")
+	return fig
+
+
+def build_workflow_cover_figure(summary: Mapping) -> plt.Figure:
+	fig = plt.figure(figsize=(11.69, 8.27), facecolor="#071018")
+	ax = fig.add_axes([0, 0, 1, 1])
+	ax.set_axis_off()
+	ax.set_xlim(0, 1)
+	ax.set_ylim(0, 1)
+
+	preview_image = summary.get("preview_image")
+	ax.text(0.055, 0.94, "E-Waste Workflow Dossier", color="#f7fbff", fontsize=24, fontweight="bold")
+	ax.text(
+		0.055,
+		0.902,
+		f"{summary.get('workflow_name', 'Workflow review')} | generated {datetime.now().strftime('%d %b %Y %H:%M')}",
+		color="#9ce7ed",
+		fontsize=12,
+	)
+	ax.text(0.055, 0.85, "\n".join(wrap_plot_text(summary.get("detail", ""), width=84, max_lines=4)), color="#d5e2ee", fontsize=11, va="top")
+
+	def draw_stat_card(x: float, title: str, value: str, detail: str, accent: str) -> None:
+		card = FancyBboxPatch(
+			(x, 0.56),
+			0.18,
+			0.15,
+			boxstyle="round,pad=0.012,rounding_size=0.024",
+			linewidth=1.4,
+			edgecolor=accent,
+			facecolor="#102131",
+		)
+		ax.add_patch(card)
+		ax.text(x + 0.02, 0.675, title.upper(), color="#92a4b8", fontsize=8.5, fontweight="bold")
+		ax.text(x + 0.02, 0.62, value, color="#f7fbff", fontsize=18, fontweight="bold")
+		ax.text(x + 0.02, 0.58, detail, color="#d5e2ee", fontsize=9)
+
+	draw_stat_card(0.055, "Workflow", str(summary.get("workflow_name", "n/a")), "Current active lane", "#63d0d9")
+	draw_stat_card(0.255, "Objects", str(summary.get("object_count_value", 0)), "Retained objects / events", "#f4b168")
+	draw_stat_card(0.455, "Dominant", str(summary.get("dominant_component", "n/a")), f"confidence {format_pct(to_float(summary.get('dominant_confidence')))}", "#3cc58d")
+	draw_stat_card(0.655, "Hazard", str(summary.get("highest_hazard", "UNKNOWN")), "Worst-case routing band", "#ff6f61")
+
+	if isinstance(preview_image, Image.Image):
+		image_ax = fig.add_axes([0.72, 0.16, 0.23, 0.26])
+		image_ax.imshow(np.asarray(preview_image.convert("RGB")))
+		image_ax.set_xticks([])
+		image_ax.set_yticks([])
+		image_ax.set_title("Representative evidence", color="#f7fbff", fontsize=11)
+		for spine in image_ax.spines.values():
+			spine.set_edgecolor("#63d0d9")
+			spine.set_linewidth(1.2)
+
+	ax.text(0.055, 0.47, "Decision narrative", color="#f7fbff", fontsize=15, fontweight="bold")
+	ax.text(
+		0.055,
+		0.435,
+		"\n".join(wrap_plot_text(summary.get("decision", {}).get("explanation", "No decision explanation available."), width=78, max_lines=8)),
+		color="#d5e2ee",
+		fontsize=10,
+		va="top",
+	)
+	ax.text(0.055, 0.16, "Plant takeaway", color="#9ce7ed", fontsize=12, fontweight="bold")
+	ax.text(
+		0.055,
+		0.132,
+		"This report translates raw model output into plant-facing evidence: what was observed, how many objects were retained, which hazard bands were triggered, what material stream each component belongs to, and what downstream action is recommended.",
+		color="#d5e2ee",
+		fontsize=10.2,
+		va="top",
+	)
+	return fig
+
+
+def build_workflow_table_figure(summary: Mapping, *, kind: str = "components") -> plt.Figure:
+	component_rows = list(summary.get("component_rows", []))
+	route_rows = list(summary.get("route_rows", []))
+	stream_rows = list(summary.get("stream_rows", []))
+	objects = list(summary.get("objects", []))
+	frame_summaries = list(summary.get("frame_summaries", []))
+	fig = plt.figure(figsize=(11.69, 8.27), facecolor="#071018")
+	ax = fig.add_axes([0, 0, 1, 1])
+	ax.set_axis_off()
+	ax.set_xlim(0, 1)
+	ax.set_ylim(0, 1)
+
+	if kind == "components":
+		ax.text(0.05, 0.94, "Materials and Disposal Matrix", color="#f7fbff", fontsize=22, fontweight="bold")
+		draw_canvas_stat_card(
+			ax,
+			x=0.05,
+			y=0.79,
+			w=0.19,
+			h=0.1,
+			title="Component groups",
+			value=str(summary.get("unique_components", 0)),
+			detail="distinct classified groups in this run",
+			accent="#63d0d9",
+		)
+		draw_canvas_stat_card(
+			ax,
+			x=0.27,
+			y=0.79,
+			w=0.19,
+			h=0.1,
+			title="Route patterns",
+			value=str(summary.get("route_count", 0)),
+			detail="downstream streams activated",
+			accent="#f38b59",
+		)
+		draw_canvas_stat_card(
+			ax,
+			x=0.49,
+			y=0.79,
+			w=0.19,
+			h=0.1,
+			title="Highest hazard",
+			value=str(summary.get("highest_hazard", "UNKNOWN")),
+			detail="worst-case disposal control band",
+			accent="#ff6f61" if str(summary.get("highest_hazard", "UNKNOWN")) == "HIGH" else "#f4b168",
+		)
+		draw_canvas_stat_card(
+			ax,
+			x=0.71,
+			y=0.79,
+			w=0.24,
+			h=0.1,
+			title="SDG lens",
+			value=", ".join(summary.get("sdg_targets", [])[:2]) or "SDG 12.4",
+			detail="safe handling, recovery, and auditability",
+			accent="#3cc58d",
+		)
+		component_display = []
+		for row in component_rows[:10]:
+			component_display.append(
+				[
+					row.get("component", ""),
+					int(row.get("count", 0) or 0),
+					row.get("hazard_level", ""),
+					f"{to_float(row.get('avg_confidence')) or 0.0:.2%}",
+					truncate_text(row.get("material_profile", ""), 30),
+					truncate_text(row.get("disposal_pathway", ""), 30),
+					truncate_text(row.get("process_further", ""), 34),
+				]
+			)
+		table_ax = fig.add_axes([0.04, 0.39, 0.92, 0.33])
+		table_ax.set_axis_off()
+		if component_display:
+			table = table_ax.table(
+				cellText=component_display,
+				colLabels=["Component", "Count", "Hazard", "Avg conf", "Material", "Route", "Next process"],
+				loc="center",
+				cellLoc="left",
+				colLoc="left",
+				colWidths=[0.14, 0.06, 0.09, 0.08, 0.21, 0.19, 0.23],
+			)
+			table.auto_set_font_size(False)
+			table.set_fontsize(8.2)
+			table.scale(1, 1.45)
+			for (row_idx, col_idx), cell in table.get_celld().items():
+				cell.set_edgecolor("#35506b")
+				cell.set_linewidth(0.6)
+				if row_idx == 0:
+					cell.set_facecolor("#13283d")
+					cell.get_text().set_color("#f7fbff")
+					cell.get_text().set_fontweight("bold")
+				else:
+					cell.set_facecolor("#102131" if row_idx % 2 else "#112637")
+					cell.get_text().set_color("#dce7f2")
+
+		stream_ax = fig.add_axes([0.05, 0.09, 0.39, 0.2])
+		if stream_rows:
+			stream_labels = list(reversed([truncate_text(row["stream"], 24) for row in stream_rows[:5]]))
+			stream_values = list(reversed([int(row["count"]) for row in stream_rows[:5]]))
+			stream_ax.barh(stream_labels, stream_values, color="#63d0d9")
+			style_plot_axis(stream_ax, "Activated plant streams")
+			stream_ax.set_xlabel("objects / events")
+			stream_ax.grid(axis="x", alpha=0.18, color="#6f879e")
+		else:
+			stream_ax.set_axis_off()
+			stream_ax.text(0.5, 0.5, "No downstream streams available", ha="center", va="center", color="#dce7f2")
+
+		notes_ax = fig.add_axes([0.5, 0.08, 0.45, 0.21])
+		notes_ax.set_axis_off()
+		notes_ax.set_facecolor("#102131")
+		notes_ax.text(0.0, 0.96, "Downstream processing guidance", color="#f7fbff", fontsize=15, fontweight="bold", va="top")
+		note_lines: list[str] = []
+		for idx, row in enumerate(component_rows[:4], start=1):
+			note_text = " ".join(wrap_plot_text(row.get("process_further", "n/a"), width=58, max_lines=2))
+			note_lines.append(f"{idx}. {row.get('component', 'n/a')} -> {note_text}")
+		if not note_lines:
+			note_lines = ["No component-specific process notes available."]
+		notes_ax.text(0.0, 0.8, "\n".join(note_lines), color="#d5e2ee", fontsize=9.6, va="top", linespacing=1.48)
+	else:
+		ax.text(0.05, 0.94, "Object and Frame Evidence", color="#f7fbff", fontsize=22, fontweight="bold")
+		preview_image = summary.get("preview_image")
+		draw_canvas_stat_card(
+			ax,
+			x=0.05,
+			y=0.8,
+			w=0.2,
+			h=0.1,
+			title="Detected events",
+			value=str(summary.get("object_count_value", 0)),
+			detail="retained objects or frame events",
+			accent="#63d0d9",
+		)
+		draw_canvas_stat_card(
+			ax,
+			x=0.28,
+			y=0.8,
+			w=0.2,
+			h=0.1,
+			title="Review burden",
+			value=str(summary.get("review_object_count", 0)),
+			detail="items awaiting human confirmation",
+			accent="#f4b168",
+		)
+		draw_canvas_stat_card(
+			ax,
+			x=0.51,
+			y=0.8,
+			w=0.2,
+			h=0.1,
+			title="Avg confidence",
+			value=format_pct(to_float(summary.get("average_confidence"))),
+			detail="mean classifier confidence",
+			accent="#3cc58d",
+		)
+		if isinstance(preview_image, Image.Image):
+			image_ax = fig.add_axes([0.76, 0.73, 0.19, 0.16])
+			image_ax.imshow(np.asarray(preview_image.convert("RGB")))
+			image_ax.set_xticks([])
+			image_ax.set_yticks([])
+			image_ax.set_title("Representative evidence", color="#f7fbff", fontsize=10)
+			for spine in image_ax.spines.values():
+				spine.set_edgecolor("#63d0d9")
+				spine.set_linewidth(1.0)
+		object_display = []
+		for row in objects[:16]:
+			object_display.append(
+				[
+					row.get("object_id", ""),
+					truncate_text(row.get("predicted_class", ""), 16),
+					f"{to_float(row.get('classifier_confidence')) or 0.0:.2%}",
+					row.get("hazard_level", ""),
+					"Yes" if row.get("requires_review", True) else "No",
+					truncate_text(row.get("detector_label", ""), 18),
+					truncate_text(row.get("frame_id", "") or "-", 10),
+				]
+			)
+		table_ax = fig.add_axes([0.04, 0.42, 0.92, 0.26])
+		table_ax.set_axis_off()
+		if object_display:
+			table = table_ax.table(
+				cellText=object_display,
+				colLabels=["ID", "Class", "Confidence", "Hazard", "Review", "Localization source", "Frame"],
+				loc="center",
+				cellLoc="left",
+				colLoc="left",
+				colWidths=[0.08, 0.16, 0.11, 0.1, 0.09, 0.28, 0.1],
+			)
+			table.auto_set_font_size(False)
+			table.set_fontsize(8.4)
+			table.scale(1, 1.4)
+			for (row_idx, col_idx), cell in table.get_celld().items():
+				cell.set_edgecolor("#35506b")
+				cell.set_linewidth(0.6)
+				if row_idx == 0:
+					cell.set_facecolor("#13283d")
+					cell.get_text().set_color("#f7fbff")
+					cell.get_text().set_fontweight("bold")
+				else:
+					cell.set_facecolor("#102131" if row_idx % 2 else "#112637")
+					cell.get_text().set_color("#dce7f2")
+
+		route_ax = fig.add_axes([0.05, 0.09, 0.4, 0.22])
+		if route_rows:
+			route_labels = list(reversed([truncate_text(row["route"], 24) for row in route_rows[:5]]))
+			route_values = list(reversed([int(row["count"]) for row in route_rows[:5]]))
+			route_ax.barh(route_labels, route_values, color="#f38b59")
+			style_plot_axis(route_ax, "Route allocation")
+			route_ax.set_xlabel("objects / events")
+			route_ax.grid(axis="x", alpha=0.18, color="#6f879e")
+		else:
+			route_ax.set_axis_off()
+			route_ax.text(0.5, 0.5, "No route evidence available", ha="center", va="center", color="#dce7f2")
+
+		if frame_summaries:
+			frame_display = []
+			for row in frame_summaries[:10]:
+				frame_display.append(
+					[
+						row.get("frame_id", ""),
+						f"{to_float(row.get('timestamp_s')) or 0.0:.2f}s",
+						int(row.get("detected_objects", 0) or 0),
+						truncate_text(row.get("dominant_component", ""), 18),
+						row.get("highest_hazard", ""),
+						"Yes" if row.get("requires_review", True) else "No",
+					]
+				)
+			frame_ax = fig.add_axes([0.51, 0.08, 0.45, 0.24])
+			frame_ax.set_axis_off()
+			frame_table = frame_ax.table(
+				cellText=frame_display,
+				colLabels=["Frame", "Timestamp", "Objects", "Dominant class", "Hazard", "Review"],
+				loc="center",
+				cellLoc="left",
+				colLoc="left",
+				colWidths=[0.13, 0.15, 0.12, 0.26, 0.12, 0.1],
+			)
+			frame_table.auto_set_font_size(False)
+			frame_table.set_fontsize(8.7)
+			frame_table.scale(1, 1.35)
+			for (row_idx, col_idx), cell in frame_table.get_celld().items():
+				cell.set_edgecolor("#35506b")
+				cell.set_linewidth(0.6)
+				if row_idx == 0:
+					cell.set_facecolor("#13283d")
+					cell.get_text().set_color("#f7fbff")
+					cell.get_text().set_fontweight("bold")
+				else:
+					cell.set_facecolor("#102131" if row_idx % 2 else "#112637")
+					cell.get_text().set_color("#dce7f2")
+		else:
+			notes_ax = fig.add_axes([0.51, 0.09, 0.43, 0.21])
+			notes_ax.set_axis_off()
+			notes_ax.text(0.0, 0.96, "Localization interpretation", color="#f7fbff", fontsize=14, fontweight="bold", va="top")
+			notes_ax.text(
+				0.0,
+				0.8,
+				"\n".join(
+					wrap_plot_text(
+						"The table above lists every retained object candidate, its class, hazard band, and downstream route. This page is intended to show plant operators exactly what evidence contributed to the final disposal recommendation.",
+						width=62,
+						max_lines=8,
+					)
+				),
+				color="#d5e2ee",
+				fontsize=9.8,
+				va="top",
+				linespacing=1.45,
+			)
+
+	return fig
+
+
+def build_workflow_pdf_report(summary: Mapping) -> bytes:
+	buffer = BytesIO()
+	with PdfPages(buffer) as pdf:
+		pdf_info = pdf.infodict()
+		pdf_info["Title"] = f"E-Waste Workflow Dossier - {summary.get('workflow_name', 'Workflow review')}"
+		pdf_info["Author"] = "E-Waste Operations Console"
+		pdf_info["Subject"] = "Plant-facing workflow report for e-waste triage, clustering, and belt review"
+		pdf_info["Keywords"] = "e-waste, workflow, disposal, SDG 12, convnext, detection, routing"
+		pdf_info["CreationDate"] = datetime.now()
+		for fig in [
+			build_workflow_cover_figure(summary),
+			build_workflow_diagram_figure(summary, pdf_mode=True),
+			build_workflow_operations_figure(summary, pdf_mode=True),
+			build_component_intelligence_figure(summary, pdf_mode=True),
+			build_workflow_table_figure(summary, kind="components"),
+			build_workflow_table_figure(summary, kind="objects"),
+		]:
+			pdf.savefig(fig, facecolor=fig.get_facecolor())
+			plt.close(fig)
+	buffer.seek(0)
+	return buffer.getvalue()
+
+
+def render_workflow_workspace(last_result: Mapping | None) -> None:
+	render_section_intro(
+		"Workflow Atlas",
+		"Unified operational infographic",
+		"This page packages the current run into one faculty-friendly operations narrative: what entered the plant lane, how the system processed it, what it extracted, how hazard and material rules were applied, and what downstream action is recommended.",
+		icon="stack",
+	)
+	summary = build_unified_workflow_summary(last_result, st.session_state)
+	if summary is None:
+		render_panel(
+			"Workflow status",
+			"Awaiting a run",
+			"Run single-item triage, cluster review, or video review first. This workspace will then generate a structured operations infographic and an exportable dossier.",
+			icon="route",
+		)
+		render_banner(
+			"What this page is for",
+			"It is meant to impress a reviewer quickly: one page, one story, one export, with plant-facing visuals instead of scattered UI fragments.",
+			"neutral",
+			icon="chart",
+		)
+		return
+
+	render_banner(
+		str(summary.get("headline", "Workflow summary")),
+		str(summary.get("detail", "No diagnostic detail available.")),
+		"warning" if summary.get("review_required", True) else "success",
+		icon="route",
+	)
+	render_badge_row(summary.get("media_badges", []))
+
+	top_metrics = st.columns(4, gap="small")
+	with top_metrics[0]:
+		render_metric_tile("Workflow", str(summary.get("workflow_name", "n/a")), str(summary.get("source_label", "active session")), "neutral", icon="gallery")
+	with top_metrics[1]:
+		render_metric_tile("Objects / events", str(summary.get("object_count_value", 0)), "what the system retained and processed in this run", "neutral", icon="cluster")
+	with top_metrics[2]:
+		render_metric_tile("Unique components", str(summary.get("unique_components", 0)), "distinct e-waste groups extracted from the run", "neutral", icon="stack")
+	with top_metrics[3]:
+		render_metric_tile(
+			"Highest hazard",
+			str(summary.get("highest_hazard", "UNKNOWN")),
+			"highest risk band controlling downstream routing",
+			"danger" if summary.get("highest_hazard") == "HIGH" else "warning",
+			icon="warning",
+		)
+
+	second_metrics = st.columns(4, gap="small")
+	with second_metrics[0]:
+		render_metric_tile("Dominant class", str(summary.get("dominant_component", "n/a")), f"confidence {format_pct(to_float(summary.get('dominant_confidence')))}", "success", icon="cpu")
+	with second_metrics[1]:
+		render_metric_tile("High-hazard count", str(summary.get("high_hazard_count", 0)), "items or events requiring hazardous handling", "danger", icon="shield")
+	with second_metrics[2]:
+		render_metric_tile("Route patterns", str(summary.get("route_count", 0)), "distinct downstream streams generated", "neutral", icon="route")
+	with second_metrics[3]:
+		render_metric_tile(
+			"Human review",
+			"Required" if summary.get("review_required", True) else "Clear",
+			"final plant release gate for the observed run",
+			"warning" if summary.get("review_required", True) else "success",
+			icon="review",
+		)
+
+	st.markdown("#### Executive Dossier View")
+	cover_fig = build_workflow_cover_figure(summary)
+	st.pyplot(cover_fig, use_container_width=True)
+	plt.close(cover_fig)
+
+	st.markdown("#### End-to-End Workflow Blueprint")
+	workflow_fig = build_workflow_diagram_figure(summary)
+	st.pyplot(workflow_fig, use_container_width=True)
+	plt.close(workflow_fig)
+
+	st.markdown("#### Plant Operations Snapshot")
+	ops_fig = build_workflow_operations_figure(summary)
+	st.pyplot(ops_fig, use_container_width=True)
+	plt.close(ops_fig)
+
+	st.markdown("#### Component and Routing Intelligence")
+	component_intel_fig = build_component_intelligence_figure(summary)
+	st.pyplot(component_intel_fig, use_container_width=True)
+	plt.close(component_intel_fig)
+
+	summary_cols = st.columns(2, gap="large")
+	with summary_cols[0]:
+		render_panel(
+			"Plant response summary",
+			str(summary.get("decision", {}).get("short_recommendation", "No route available.")),
+			str(summary.get("decision", {}).get("explanation", "No decision explanation available.")),
+			icon="route",
+		)
+	with summary_cols[1]:
+		render_panel(
+			"SDG 12 alignment",
+			", ".join(summary.get("sdg_targets", [])[:2]) or "SDG 12.4",
+			str(summary.get("sdg_alignment_copy", "No SDG alignment narrative available.")),
+			icon="spark",
+		)
+
+	st.markdown("#### Operator Checklist")
+	render_checklist(summary.get("checklist", []))
+
+	st.markdown("#### Component-to-Disposal Matrix")
+	component_frame = summary.get("component_frame")
+	if isinstance(component_frame, pd.DataFrame) and not component_frame.empty:
+		st.dataframe(
+			component_frame[
+				[
+					"component",
+					"count",
+					"hazard_level",
+					"avg_confidence",
+					"material_profile",
+					"disposal_pathway",
+					"process_further",
+					"review_required",
+					"sdg_target",
+				]
+			],
+			width="stretch",
+			hide_index=True,
+		)
+		render_mapping_cards(summary.get("component_rows", []))
+	else:
+		st.info("No component mapping matrix is available for the current workflow.")
+
+	st.markdown("#### Object / Event Evidence")
+	object_frame = summary.get("object_frame")
+	if isinstance(object_frame, pd.DataFrame) and not object_frame.empty:
+		display_columns = [
+			"object_id",
+			"predicted_class",
+			"classifier_confidence",
+			"detector_label",
+			"detector_score",
+			"hazard_level",
+			"requires_review",
+			"recommended_route",
+			"process_further",
+		]
+		if "frame_id" in object_frame.columns:
+			display_columns.append("frame_id")
+		if "timestamp_s" in object_frame.columns:
+			display_columns.append("timestamp_s")
+		st.dataframe(object_frame[display_columns], width="stretch", hide_index=True)
+	else:
+		st.info("No object-level rows are available for the current workflow.")
+
+	if summary.get("analysis_kind") == "video_belt_review" and summary.get("frame_summaries"):
+		st.markdown("#### Frame Summary")
+		frame_summary_frame = pd.DataFrame(summary["frame_summaries"])
+		if not frame_summary_frame.empty:
+			frame_summary_frame["timestamp_s"] = frame_summary_frame["timestamp_s"].map(lambda x: f"{float(x):.2f}")
+			frame_summary_frame["requires_review"] = frame_summary_frame["requires_review"].map(lambda x: "Yes" if x else "No")
+			st.dataframe(frame_summary_frame, width="stretch", hide_index=True)
+
+	trace_steps = summary.get("trace_steps", [])
+	if trace_steps:
+		st.markdown("#### Execution Trace")
+		render_trace_steps(trace_steps)
+
+	st.markdown("#### Export Workflow Dossier")
+	export_panels = st.columns(2, gap="small")
+	with export_panels[0]:
+		render_panel(
+			"Report structure",
+			"Multi-page plant dossier",
+			"The PDF export now bundles the executive view, workflow blueprint, plant operations snapshot, hazard and routing charts, materials matrix, and evidence tables into one report.",
+			icon="chart",
+		)
+	with export_panels[1]:
+		render_panel(
+			"Reviewer intent",
+			str(summary.get("workflow_name", "Workflow review")),
+			"Designed so a faculty evaluator or plant operator can understand the full workflow objective, what the system extracted, and what downstream handling decision was produced.",
+			icon="review",
+		)
+
+	pdf_bytes = build_workflow_pdf_report(summary)
+	export_cols = st.columns(2, gap="small")
+	timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+	file_stub = f"ewaste_workflow_{summary.get('analysis_kind', 'report')}_{timestamp}"
+	with export_cols[0]:
+		st.download_button(
+			"Download workflow PDF report",
+			data=pdf_bytes,
+			file_name=f"{file_stub}.pdf",
+			mime="application/pdf",
+			key=f"{file_stub}_pdf",
+			type="primary",
+		)
+	with export_cols[1]:
+		st.download_button(
+			"Download workflow JSON summary",
+			data=json.dumps(summary.get("export_payload", {}), indent=2),
+			file_name=f"{file_stub}.json",
+			mime="application/json",
+			key=f"{file_stub}_json",
+		)
+
+
 def render_detected_cluster_report(report: Mapping, key_prefix: str, workflow_value: str = "Detector-assisted cluster review") -> None:
 	if not isinstance(report, Mapping):
 		st.info("Run detector-assisted cluster review to populate this report.")
@@ -4397,6 +6012,9 @@ def main() -> None:
 				sample_every_seconds=video_sample_every,
 				max_frames=video_max_frames,
 			)
+
+	if workspace == "Workflow":
+		render_workflow_workspace(st.session_state.get("last_result"))
 
 	if workspace == "Policy":
 		render_section_intro(
