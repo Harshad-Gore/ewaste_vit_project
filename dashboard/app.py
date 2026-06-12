@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Optional
 from datetime import datetime
 import html
 from io import BytesIO
@@ -1216,7 +1217,7 @@ def format_float(value: float | None, digits: int = 4) -> str:
 	return f"{value:.{digits}f}"
 
 
-def to_float(value: object) -> float | None:
+def to_float(value: object) -> Optional[float]:
 	try:
 		if value is None:
 			return None
